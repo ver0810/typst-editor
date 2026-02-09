@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --color-obsidian-900: #1a1b1e;
+  --color-obsidian-850: #1d1f24;
+  --color-obsidian-800: #1f2126;
+  --color-obsidian-750: #23252a;
+  --color-obsidian-700: #2b2e34;
+  --color-obsidian-650: #30343b;
+  --color-obsidian-600: #3a3d45;
+  --color-obsidian-500: #4a4f5a;
+  --color-obsidian-400: #7d8593;
+  --color-obsidian-300: #a7adb6;
+  --color-obsidian-200: #d8d8d8;
+
+  --shadow-panel: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* CodeMirror: font & background only */
+.cm-editor {
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas",
+    "SF Mono", "Monaco", monospace;
+  background-color: var(--color-obsidian-800);
+}
+
+/* Ensure CodeMirror scroller works */
+.cm-editor.cm-editor {
+  height: 100%;
+}
+
+.cm-editor .cm-scroller {
+  overflow: auto !important;
+}
+
+.cm-gutters {
+  background-color: var(--color-obsidian-800);
+  border-right: none;
+}
+
+/* Preview scrollbar */
+.preview-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+}
+
+.preview-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.preview-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.preview-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.preview-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+}
+
+/* Editor scrollbar appearance only — no layout overrides */
+.editor-scroll .cm-scroller::-webkit-scrollbar {
+  width: 4px;
+}
+
+.editor-scroll .cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-scroll .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+}
+
+.editor-scroll .cm-scroller:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.45);
+}
+
+.preview-block > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+body.col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
