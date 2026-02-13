@@ -1,41 +1,28 @@
 mod world;
+mod lsp;
 
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use futures_util::{SinkExt, StreamExt};
-use serde::{Deserialize, Serialize};
-use tokio::net::TcpListener;
-use tokio_tungstenite::tungstenite::Message;
+use serde::Serialize;
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter};
+use tracing_subscriber;
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Size};
 use typst::syntax::Span;
 
+use lsp::{CompletionItem, Hover, Location, LspManager};
 use world::EditorWorld;
 
 struct AppState {
     world: Mutex<Option<EditorWorld>>,
     last_hashes: Mutex<Vec<u64>>,
     last_blocks: Mutex<Vec<HashMap<String, u64>>>,
+    lsp_manager: Arc<LspManager>,
 }
 
-const WS_ADDR: &str = "127.0.0.1:14784";
-
-#[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum ClientMessage {
-    Compile { content: String, revision: u64 },
-}
-
-#[derive(Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum ServerMessage {
-    Ready,
-    Patch { revision: u64, pages: Vec<PagePatch> },
-    Error { revision: Option<u64>, message: String },
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct PagePatch {
     page_index: usize,
     page_hash: u64,
@@ -44,7 +31,7 @@ struct PagePatch {
     removed_blocks: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct BlockPatch {
     block_id: String,
     hash: u64,
@@ -53,7 +40,7 @@ struct BlockPatch {
     span: Option<SpanRange>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct BBox {
     x: f32,
     y: f32,
@@ -67,42 +54,115 @@ struct PageSize {
     h: f32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct SpanRange {
     line_start: usize,
     line_end: usize,
 }
 
+#[derive(Serialize, Clone)]
+struct CompileResult {
+    revision: u64,
+    pages: Vec<PagePatch>,
+}
+
+#[derive(Serialize, Clone)]
+struct CompileError {
+    revision: u64,
+    message: String,
+}
+
+/// Tauri command: Compile Typst content and emit result via events
 #[tauri::command]
-fn compile_typst(
-    content: &str,
+async fn compile_typst(
+    content: String,
+    revision: u64,
+    app: AppHandle,
     state: tauri::State<'_, Arc<AppState>>,
-) -> Result<Vec<String>, String> {
-    let mut world_guard = state.world.lock().map_err(|e| e.to_string())?;
+) -> Result<(), String> {
+    let state = Arc::clone(&state);
+    
+    // Run compilation in blocking thread to avoid blocking async runtime
+    let result = tokio::task::spawn_blocking(move || {
+        build_patch(&content, &state)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
 
-    let world = world_guard.get_or_insert_with(|| EditorWorld::new(content));
-    world.update_source(content);
-
-    let result = typst::compile::<PagedDocument>(world);
-
-    match result.output {
-        Ok(document) => {
-            let svgs: Vec<String> = document
-                .pages
-                .iter()
-                .map(|page| typst_svg::svg(page))
-                .collect();
-            Ok(svgs)
+    match result {
+        Ok(pages) => {
+            let payload = CompileResult { revision, pages };
+            app.emit("typst-patch", payload)
+                .map_err(|e| e.to_string())?;
         }
-        Err(errors) => {
-            let error_msg = errors
-                .iter()
-                .map(|e| e.message.to_string())
-                .collect::<Vec<_>>()
-                .join("\n");
-            Err(error_msg)
+        Err(message) => {
+            let payload = CompileError { revision, message };
+            app.emit("typst-error", payload)
+                .map_err(|e| e.to_string())?;
         }
     }
+
+    Ok(())
+}
+
+/// Tauri command: Get initial compilation result (for cold start)
+#[tauri::command]
+fn compile_and_get(
+    content: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<PagePatch>, String> {
+    build_patch(&content, &state)
+}
+
+/// Tauri command: Get completion items at position
+#[tauri::command]
+async fn lsp_completion(
+    uri: String,
+    line: u64,
+    character: u64,
+    version: i64,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<CompletionItem>, String> {
+    let manager = Arc::clone(&state.lsp_manager);
+    manager.get_completion(uri, line, character, version).await
+}
+
+/// Tauri command: Get hover information at position
+#[tauri::command]
+async fn lsp_hover(
+    uri: String,
+    line: u64,
+    character: u64,
+    version: i64,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Option<Hover>, String> {
+    let manager = Arc::clone(&state.lsp_manager);
+    manager.get_hover(uri, line, character, version).await
+}
+
+/// Tauri command: Go to definition at position
+#[tauri::command]
+async fn lsp_goto_definition(
+    uri: String,
+    line: u64,
+    character: u64,
+    version: i64,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Option<Location>, String> {
+    let manager = Arc::clone(&state.lsp_manager);
+    manager.goto_definition(uri, line, character, version).await
+}
+
+/// Tauri command: Update document content in LSP server
+#[tauri::command]
+async fn lsp_update_document(
+    uri: String,
+    content: String,
+    version: i64,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let manager = Arc::clone(&state.lsp_manager);
+    manager.update_document(uri, content, version).await
 }
 
 fn hash_svg(svg: &str) -> u64 {
@@ -349,108 +409,39 @@ fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String
     }
 }
 
-async fn handle_socket(stream: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>, state: Arc<AppState>) {
-    let (mut write, mut read) = stream.split();
-
-    let ready = serde_json::to_string(&ServerMessage::Ready).unwrap_or_default();
-    let _ = write.send(Message::Text(ready)).await;
-
-    while let Some(message) = read.next().await {
-        let Ok(message) = message else {
-            break;
-        };
-
-        if !message.is_text() {
-            continue;
-        }
-
-        let Ok(text) = message.into_text() else {
-            continue;
-        };
-
-        let client_message = serde_json::from_str::<ClientMessage>(&text);
-        let client_message = match client_message {
-            Ok(value) => value,
-            Err(err) => {
-                let payload = ServerMessage::Error {
-                    revision: None,
-                    message: err.to_string(),
-                };
-                let _ = write
-                    .send(Message::Text(serde_json::to_string(&payload).unwrap_or_default()))
-                    .await;
-                continue;
-            }
-        };
-
-        match client_message {
-            ClientMessage::Compile { content, revision } => {
-                let state = state.clone();
-                let payload = tauri::async_runtime::spawn_blocking(move || build_patch(&content, &state))
-                    .await
-                    .map_err(|e| e.to_string());
-
-                match payload {
-                    Ok(Ok(pages)) => {
-                        let response = ServerMessage::Patch { revision, pages };
-                        let _ = write
-                            .send(Message::Text(
-                                serde_json::to_string(&response).unwrap_or_default(),
-                            ))
-                            .await;
-                    }
-                    Ok(Err(message)) | Err(message) => {
-                        let response = ServerMessage::Error {
-                            revision: Some(revision),
-                            message,
-                        };
-                        let _ = write
-                            .send(Message::Text(
-                                serde_json::to_string(&response).unwrap_or_default(),
-                            ))
-                            .await;
-                    }
-                }
-            }
-        }
-    }
-}
-
-async fn start_ws(state: Arc<AppState>) -> Result<(), String> {
-    let listener = TcpListener::bind(WS_ADDR)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    while let Ok((stream, _)) = listener.accept().await {
-        let state = state.clone();
-        tauri::async_runtime::spawn(async move {
-            if let Ok(ws_stream) = tokio_tungstenite::accept_async(stream).await {
-                handle_socket(ws_stream, state).await;
-            }
-        });
-    }
-
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    tracing_subscriber::fmt()
+        .with_env_filter("info")
+        .init();
+    
+    let lsp_manager = Arc::new(LspManager::new());
+    
     let state = Arc::new(AppState {
         world: Mutex::new(None),
         last_hashes: Mutex::new(Vec::new()),
         last_blocks: Mutex::new(Vec::new()),
+        lsp_manager,
     });
-    let ws_state = state.clone();
+
     tauri::async_runtime::spawn(async move {
-        if let Err(err) = start_ws(ws_state).await {
-            eprintln!("ws error: {}", err);
+        let manager = Arc::new(LspManager::new());
+        if let Err(e) = lsp::start_lsp_server(manager).await {
+            tracing::error!("LSP server error: {}", e);
         }
     });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(state)
-        .invoke_handler(tauri::generate_handler![compile_typst])
+        .invoke_handler(tauri::generate_handler![
+            compile_typst,
+            compile_and_get,
+            lsp_completion,
+            lsp_hover,
+            lsp_goto_definition,
+            lsp_update_document
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

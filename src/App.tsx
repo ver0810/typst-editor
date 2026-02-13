@@ -1,9 +1,207 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { markdown } from "@codemirror/lang-markdown";
+import { StreamLanguage } from "@codemirror/language";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
+import { autocompletion } from "@codemirror/autocomplete";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { tags } from "@lezer/highlight";
 import "./App.css";
 import { Toolbar } from "./Toolbar";
+import { typstCompletion, updateDocument } from "./TypstLsp";
+
+const typstKeywords = [
+  "let", "set", "show", "if", "else", "for", "while", "return", "break", "continue",
+  "import", "include", "as", "in", "where", "func", "const"
+];
+
+const typstFunctions = [
+  "text", "strong", "emph", "underline", "strike", "raw", "math", "equation", "figure",
+  "table", "image", "rect", "circle", "line", "polygon", "ellipse", "path", "svg",
+  "align", "center", "left", "right", "justify", "columns", "grid", "stack", "gap",
+  "page", "par", "heading", "list", "enum", "term", "outline", "bibliography",
+  "ref", "label", "cite", "footnote", "note", "quote", "block", "place", "move", "rotate", "scale", "skew",
+  "v", "h", "space", "quad", "dots", "package", "document", "box", "hide", "reveal", "synthesize",
+  "context", "locate", "query", "counter", "state", "selector", "style"
+];
+
+const typstBuiltin = [
+  "auto", "true", "false", "none", "this", "self", "super", "it", "args"
+];
+
+const typstAtoms = ["and", "or", "not", "at", "is", "isnt"];
+
+const typstUnits = ["pt", "px", "mm", "cm", "in", "em", "ex", "rem", "fr", "deg", "rad", "s", "ms"];
+
+const typstColors = [
+  "black", "white", "gray", "grey", "silver", "maroon", "red", "purple", "fuchsia", "green",
+  "lime", "olive", "yellow", "navy", "blue", "teal", "aqua", "orange", "aliceblue", "antiquewhite",
+  "aquamarine", "azure", "beige", "bisque", "blanchedalmond", "blueviolet", "brown", "burlywood",
+  "cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan",
+  "darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta",
+  "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue",
+  "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray",
+  "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen", "gainsboro", "ghostwhite", "gold",
+  "goldenrod", "greenyellow", "honeydew", "hotpink", "indianred", "indigo", "ivory", "khaki", "lavender",
+  "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow",
+  "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue",
+  "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow", "limegreen", "linen", "mediumaquamarine",
+  "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen",
+  "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite",
+  "oldlace", "olivedrab", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred",
+  "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "rosybrown", "royalblue", "saddlebrown",
+  "salmon", "sandybrown", "seagreen", "seashell", "sienna", "skyblue", "slateblue", "slategray", "slategrey",
+  "snow", "springgreen", "steelblue", "tan", "thistle", "tomato", "turquoise", "violet", "wheat", "whitesmoke",
+  "yellowgreen", "rebeccapurple", "hz", "luma", "oklch", "oklab", "color"
+];
+
+function tokenize(stream: any, _state: any): string | null {
+  if (stream.eatSpace()) return null;
+  const ch = stream.peek();
+  
+  if (ch === "/" && stream.match(/\/\/.*/)) {
+    stream.skipToEnd();
+    return "comment";
+  }
+
+  if (ch === "/" && stream.match(/\/\*[\s\S]*?\*\//)) {
+    return "comment";
+  }
+
+  if (ch === "`" && stream.match(/`[^`]*`/)) {
+    return "special";
+  }
+
+  if (ch === "#" && stream.match(/#[\w-]+/)) {
+    return "keyword";
+  }
+
+  if (ch === "#") {
+    stream.next();
+    if (stream.match(/[\w-]+\s*\(/)) {
+      return "function";
+    }
+    if (stream.match(/[\w-]+/)) {
+      const word = stream.current();
+      if (typstKeywords.includes(word) || typstFunctions.includes(word)) {
+        return "keyword";
+      }
+      return "function";
+    }
+    return "meta";
+  }
+
+  if (ch === "*" || ch === "_" || ch === "~") {
+    const ch2 = stream.peek(1);
+    if (ch2 === ch) {
+      if (stream.match(/[*_~]{2}[\s\S]*?[*_~]{2}/)) return "strong";
+    }
+    if (stream.match(/[*_~][^*_~\s][*\s\S]*?[*_~]/)) {
+      return "emphasis";
+    }
+  }
+
+  if ((ch === "^" || ch === "~") && stream.match(/[\^~][\w\s]+[\^~]/)) {
+    return "meta";
+  }
+
+  if (ch === "$") {
+    stream.next();
+    if (stream.match(/\$\$[\s\S]*?\$\$/)) return "meta";
+    if (stream.match(/\$[^\$]+\$/)) return "meta";
+    if (stream.match(/\$/)) return "meta";
+    stream.match(/[^\$]*/);
+    return "string";
+  }
+
+  if (ch === "@" && stream.match(/@[\w-]+/)) {
+    return "tagName";
+  }
+
+  if (ch === "<" && stream.match(/<\w+>/)) {
+    return "link";
+  }
+
+  if (ch === "." && stream.match(/\.\w+/)) {
+    return "propertyName";
+  }
+
+  if (stream.match(/-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/)) {
+    const rest = stream.peek();
+    if (typstUnits.some(u => rest.startsWith(u))) {
+      stream.match(/[a-zA-Z%]+/);
+    }
+    return "number";
+  }
+
+  if (ch === '"') {
+    stream.next();
+    while (!stream.eol()) {
+      if (stream.next() === '"') break;
+      if (stream.peek() === "\\") stream.next();
+    }
+    return "string";
+  }
+
+  if (stream.match(/@"[^*<>"]+"/)) {
+    return "special";
+  }
+
+  if (stream.match(/[\w-]+/)) {
+    const word = stream.current();
+    if (typstKeywords.includes(word)) return "keyword";
+    if (typstFunctions.includes(word)) return "function";
+    if (typstBuiltin.includes(word)) return "atom";
+    if (typstAtoms.includes(word)) return "keyword";
+    if (typstColors.includes(word.toLowerCase())) return "special";
+    
+    const pos = stream.pos;
+    if (stream.eatSpace() && stream.peek() === "(") {
+      stream.pos = pos;
+      return "function";
+    }
+    stream.pos = pos;
+    
+    return "variableName";
+  }
+
+  if (stream.match(/[+\-*/=<>^_@.#%:&|~?!]+/)) return "operator";
+
+  if (stream.match(/[{}()\[\]]/)) return "bracket";
+
+  stream.next();
+  return null;
+}
+
+const typstLanguage = StreamLanguage.define({ token: tokenize });
+
+const typstHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: "#c678dd", fontWeight: "bold" },
+  { tag: tags.function(tags.variableName), color: "#61afef" },
+  { tag: tags.function(tags.variableName), color: "#61afef" },
+  { tag: tags.definition(tags.variableName), color: "#61afef" },
+  { tag: tags.constant(tags.bool), color: "#d19a66" },
+  { tag: tags.number, color: "#d19a66" },
+  { tag: tags.string, color: "#98c379" },
+  { tag: tags.special(tags.string), color: "#c678dd" },
+  { tag: tags.comment, color: "#5c6370", fontStyle: "italic" },
+  { tag: tags.variableName, color: "#e06c75" },
+  { tag: tags.propertyName, color: "#e5c07b" },
+  { tag: tags.operator, color: "#56b6c2" },
+  { tag: tags.bracket, color: "#abb2bf" },
+  { tag: tags.meta, color: "#56b6c2" },
+  { tag: tags.link, color: "#61afef", textDecoration: "underline" },
+  { tag: tags.tagName, color: "#e06c75" },
+  { tag: tags.emphasis, color: "#98c379", fontStyle: "italic" },
+  { tag: tags.strong, color: "#d19a66", fontWeight: "bold" },
+  { tag: tags.strikethrough, color: "#5c6370", textDecoration: "line-through" },
+]);
+
+const typstExtensions = [
+  typstLanguage,
+  syntaxHighlighting(typstHighlightStyle),
+];
 
 const DEFAULT_CONTENT = `= 欢迎使用 Typst
 
@@ -41,13 +239,8 @@ function App() {
   const [pages, setPages] = useState<PageState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [compiling, setCompiling] = useState(false);
-  const [wsStatus, setWsStatus] = useState<"connecting" | "connected" | "disconnected">(
-    "connecting"
-  );
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const revisionRef = useRef(0);
-  const pendingContentRef = useRef<string | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
@@ -64,36 +257,34 @@ function App() {
   });
 
   const editorExtensions = useMemo(() => {
-    return [
-      markdown(),
+    const extensions = [
+      ...typstExtensions,
       EditorView.lineWrapping,
+      autocompletion({ override: [typstCompletion] }),
       EditorView.updateListener.of((update) => {
         editorViewRef.current = update.view;
         if (update.selectionSet) {
           const line = update.state.doc.lineAt(update.state.selection.main.head).number;
           setActiveLine(line);
         }
+        if (update.docChanged) {
+          updateDocument(update.state.doc.toString());
+        }
       }),
     ];
+    
+    return extensions;
   }, []);
 
   const sendCompile = useCallback((text: string) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      pendingContentRef.current = text;
-      return;
-    }
-
     const revision = revisionRef.current + 1;
     revisionRef.current = revision;
     setCompiling(true);
-    ws.send(
-      JSON.stringify({
-        type: "compile",
-        content: text,
-        revision,
-      } satisfies ClientMessage)
-    );
+    
+    invoke("compile_typst", { content: text, revision }).catch((err) => {
+      setError(String(err));
+      setCompiling(false);
+    });
   }, []);
 
   const scrollEditorToLine = useCallback((line: number) => {
@@ -280,49 +471,22 @@ function App() {
   );
 
   useEffect(() => {
-    const ws = new WebSocket("ws://127.0.0.1:14784");
-    wsRef.current = ws;
-    setWsStatus("connecting");
-
-    ws.addEventListener("open", () => {
-      setWsStatus("connected");
-      if (pendingContentRef.current) {
-        sendCompile(pendingContentRef.current);
-        pendingContentRef.current = null;
-      } else {
-        sendCompile(DEFAULT_CONTENT);
-      }
-    });
-
-    ws.addEventListener("close", () => {
-      setWsStatus("disconnected");
+    const unlistenPatch = listen<{ revision: number; pages: PagePatch[] }>("typst-patch", (event) => {
+      setPages((prev) => mergePatch(prev, event.payload.pages));
+      setError(null);
       setCompiling(false);
     });
 
-    ws.addEventListener("error", () => {
-      setWsStatus("disconnected");
+    const unlistenError = listen<{ revision: number; message: string }>("typst-error", (event) => {
+      setError(event.payload.message);
       setCompiling(false);
     });
 
-    ws.addEventListener("message", (event) => {
-      try {
-        const data = JSON.parse(event.data as string) as ServerMessage;
-        if (data.type === "patch") {
-          setPages((prev) => mergePatch(prev, data.pages));
-          setError(null);
-          setCompiling(false);
-        } else if (data.type === "error") {
-          setError(data.message);
-          setCompiling(false);
-        }
-      } catch (err) {
-        setError(String(err));
-        setCompiling(false);
-      }
-    });
+    sendCompile(DEFAULT_CONTENT);
 
     return () => {
-      ws.close();
+      unlistenPatch.then(fn => fn());
+      unlistenError.then(fn => fn());
     };
   }, [sendCompile]);
 
@@ -406,23 +570,6 @@ function App() {
               设置
             </button>
           </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-obsidian-300">
-          <span
-            className={
-              "h-2 w-2 rounded-full shadow-[0_0_8px_rgba(110,231,183,0.6)]" +
-              (wsStatus === "connected"
-                ? " bg-emerald-300/80"
-                : wsStatus === "connecting"
-                  ? " bg-amber-300/80"
-                  : " bg-rose-300/80")
-            }
-          />
-          {wsStatus === "connected"
-            ? "已连接"
-            : wsStatus === "connecting"
-              ? "连接中"
-              : "已断开"}
         </div>
       </header>
 
@@ -624,17 +771,6 @@ function App() {
 }
 
 export default App;
-
-type ClientMessage = {
-  type: "compile";
-  content: string;
-  revision: number;
-};
-
-type ServerMessage =
-  | { type: "ready" }
-  | { type: "patch"; revision: number; pages: PagePatch[] }
-  | { type: "error"; revision?: number; message: string };
 
 type PagePatch = {
   page_index: number;
