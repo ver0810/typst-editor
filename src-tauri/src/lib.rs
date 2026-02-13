@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter};
 use tracing_subscriber;
 use typst::layout::{Frame, FrameItem, PagedDocument, Point, Size};
 use typst::syntax::Span;
+use typst_pdf;
 
 use lsp::{CompletionItem, Hover, Location, LspManager};
 use world::EditorWorld;
@@ -20,6 +21,7 @@ struct AppState {
     last_hashes: Mutex<Vec<u64>>,
     last_blocks: Mutex<Vec<HashMap<String, u64>>>,
     lsp_manager: Arc<LspManager>,
+    current_file_path: Mutex<Option<std::path::PathBuf>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -77,10 +79,19 @@ struct CompileError {
 async fn compile_typst(
     content: String,
     revision: u64,
+    file_path: Option<String>,
     app: AppHandle,
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
+    tracing::info!("compile_typst called with file_path: {:?}", file_path);
+    
     let state = Arc::clone(&state);
+    
+    // Update current file path
+    if let Some(path) = file_path {
+        let mut current_path = state.current_file_path.lock().map_err(|e| e.to_string())?;
+        *current_path = Some(std::path::PathBuf::from(path));
+    }
     
     // Run compilation in blocking thread to avoid blocking async runtime
     let result = tokio::task::spawn_blocking(move || {
@@ -287,9 +298,12 @@ fn block_from_items(
 
 fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String> {
     let mut world_guard = state.world.lock().map_err(|e| e.to_string())?;
+    let current_path = state.current_file_path.lock().map_err(|e| e.to_string())?;
 
-    let world = world_guard.get_or_insert_with(|| EditorWorld::new(content));
-    world.update_source(content);
+    let world = world_guard.get_or_insert_with(|| {
+        EditorWorld::new(content, current_path.as_ref())
+    });
+    world.update_source(content, current_path.as_ref());
     let source_snapshot = world.snapshot_source();
 
     let result = typst::compile::<PagedDocument>(world);
@@ -409,6 +423,71 @@ fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String
     }
 }
 
+/// Tauri command: Export Typst content to PDF
+#[tauri::command]
+async fn export_pdf(
+    content: String,
+    file_path: Option<String>,
+    app: AppHandle,
+) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    // Get the save path from user
+    let save_path = app.dialog()
+        .file()
+        .add_filter("PDF", &["pdf"])
+        .set_file_name("export.pdf")
+        .blocking_save_file();
+    
+    let save_path = match save_path {
+        Some(path) => path,
+        None => return Err("User cancelled".to_string()),
+    };
+    
+    // Compile to PDF in blocking thread
+    let result = tokio::task::spawn_blocking(move || {
+        compile_to_pdf(&content, file_path.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    
+    match result {
+        Ok(pdf_bytes) => {
+            let path_str = save_path.to_string();
+            std::fs::write(&path_str, pdf_bytes)
+                .map_err(|e| format!("Failed to write PDF: {}", e))?;
+            Ok(path_str)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn compile_to_pdf(content: &str, file_path: Option<&str>) -> Result<Vec<u8>, String> {
+    use std::path::PathBuf;
+    
+    let file_path = file_path.map(PathBuf::from);
+    let world = EditorWorld::new(content, file_path.as_ref());
+    world.update_source(content, file_path.as_ref());
+    
+    let result = typst::compile::<PagedDocument>(&world);
+    
+    match result.output {
+        Ok(document) => {
+            let pdf_bytes = typst_pdf::pdf(&document, &typst_pdf::PdfOptions::default())
+                .map_err(|e| format!("PDF generation failed: {:?}", e))?;
+            Ok(pdf_bytes)
+        }
+        Err(errors) => {
+            let error_msg = errors
+                .iter()
+                .map(|e| e.message.to_string())
+                .collect::<Vec<_>>()
+                .join("\n");
+            Err(error_msg)
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -422,6 +501,7 @@ pub fn run() {
         last_hashes: Mutex::new(Vec::new()),
         last_blocks: Mutex::new(Vec::new()),
         lsp_manager,
+        current_file_path: Mutex::new(None),
     });
 
     tauri::async_runtime::spawn(async move {
@@ -433,6 +513,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             compile_typst,
@@ -440,7 +522,8 @@ pub fn run() {
             lsp_completion,
             lsp_hover,
             lsp_goto_definition,
-            lsp_update_document
+            lsp_update_document,
+            export_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
