@@ -4,62 +4,294 @@ import { StreamLanguage } from "@codemirror/language";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { autocompletion } from "@codemirror/autocomplete";
+import { history } from "@codemirror/commands";
+import { highlightSelectionMatches } from "@codemirror/search";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { tags } from "@lezer/highlight";
+import { FolderOpen, List, Search, Box, Settings } from "lucide-react";
 import "./App.css";
 import { Toolbar } from "./Toolbar";
+import { MenuBar } from "./MenuBar";
 import { typstCompletion, updateDocument } from "./TypstLsp";
 
 const typstKeywords = [
-  "let", "set", "show", "if", "else", "for", "while", "return", "break", "continue",
-  "import", "include", "as", "in", "where", "func", "const"
+  "let",
+  "set",
+  "show",
+  "if",
+  "else",
+  "for",
+  "while",
+  "return",
+  "break",
+  "continue",
+  "import",
+  "include",
+  "as",
+  "in",
+  "where",
+  "func",
+  "const",
 ];
 
 const typstFunctions = [
-  "text", "strong", "emph", "underline", "strike", "raw", "math", "equation", "figure",
-  "table", "image", "rect", "circle", "line", "polygon", "ellipse", "path", "svg",
-  "align", "center", "left", "right", "justify", "columns", "grid", "stack", "gap",
-  "page", "par", "heading", "list", "enum", "term", "outline", "bibliography",
-  "ref", "label", "cite", "footnote", "note", "quote", "block", "place", "move", "rotate", "scale", "skew",
-  "v", "h", "space", "quad", "dots", "package", "document", "box", "hide", "reveal", "synthesize",
-  "context", "locate", "query", "counter", "state", "selector", "style"
+  "text",
+  "strong",
+  "emph",
+  "underline",
+  "strike",
+  "raw",
+  "math",
+  "equation",
+  "figure",
+  "table",
+  "image",
+  "rect",
+  "circle",
+  "line",
+  "polygon",
+  "ellipse",
+  "path",
+  "svg",
+  "align",
+  "center",
+  "left",
+  "right",
+  "justify",
+  "columns",
+  "grid",
+  "stack",
+  "gap",
+  "page",
+  "par",
+  "heading",
+  "list",
+  "enum",
+  "term",
+  "outline",
+  "bibliography",
+  "ref",
+  "label",
+  "cite",
+  "footnote",
+  "note",
+  "quote",
+  "block",
+  "place",
+  "move",
+  "rotate",
+  "scale",
+  "skew",
+  "v",
+  "h",
+  "space",
+  "quad",
+  "dots",
+  "package",
+  "document",
+  "box",
+  "hide",
+  "reveal",
+  "synthesize",
+  "context",
+  "locate",
+  "query",
+  "counter",
+  "state",
+  "selector",
+  "style",
 ];
 
 const typstBuiltin = [
-  "auto", "true", "false", "none", "this", "self", "super", "it", "args"
+  "auto",
+  "true",
+  "false",
+  "none",
+  "this",
+  "self",
+  "super",
+  "it",
+  "args",
 ];
 
 const typstAtoms = ["and", "or", "not", "at", "is", "isnt"];
 
-const typstUnits = ["pt", "px", "mm", "cm", "in", "em", "ex", "rem", "fr", "deg", "rad", "s", "ms"];
+const typstUnits = [
+  "pt",
+  "px",
+  "mm",
+  "cm",
+  "in",
+  "em",
+  "ex",
+  "rem",
+  "fr",
+  "deg",
+  "rad",
+  "s",
+  "ms",
+];
 
 const typstColors = [
-  "black", "white", "gray", "grey", "silver", "maroon", "red", "purple", "fuchsia", "green",
-  "lime", "olive", "yellow", "navy", "blue", "teal", "aqua", "orange", "aliceblue", "antiquewhite",
-  "aquamarine", "azure", "beige", "bisque", "blanchedalmond", "blueviolet", "brown", "burlywood",
-  "cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan",
-  "darkblue", "darkcyan", "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta",
-  "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen", "darkslateblue",
-  "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "deeppink", "deepskyblue", "dimgray",
-  "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen", "gainsboro", "ghostwhite", "gold",
-  "goldenrod", "greenyellow", "honeydew", "hotpink", "indianred", "indigo", "ivory", "khaki", "lavender",
-  "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan", "lightgoldenrodyellow",
-  "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon", "lightseagreen", "lightskyblue",
-  "lightslategray", "lightslategrey", "lightsteelblue", "lightyellow", "limegreen", "linen", "mediumaquamarine",
-  "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue", "mediumspringgreen",
-  "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream", "mistyrose", "moccasin", "navajowhite",
-  "oldlace", "olivedrab", "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred",
-  "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "rosybrown", "royalblue", "saddlebrown",
-  "salmon", "sandybrown", "seagreen", "seashell", "sienna", "skyblue", "slateblue", "slategray", "slategrey",
-  "snow", "springgreen", "steelblue", "tan", "thistle", "tomato", "turquoise", "violet", "wheat", "whitesmoke",
-  "yellowgreen", "rebeccapurple", "hz", "luma", "oklch", "oklab", "color"
+  "black",
+  "white",
+  "gray",
+  "grey",
+  "silver",
+  "maroon",
+  "red",
+  "purple",
+  "fuchsia",
+  "green",
+  "lime",
+  "olive",
+  "yellow",
+  "navy",
+  "blue",
+  "teal",
+  "aqua",
+  "orange",
+  "aliceblue",
+  "antiquewhite",
+  "aquamarine",
+  "azure",
+  "beige",
+  "bisque",
+  "blanchedalmond",
+  "blueviolet",
+  "brown",
+  "burlywood",
+  "cadetblue",
+  "chartreuse",
+  "chocolate",
+  "coral",
+  "cornflowerblue",
+  "cornsilk",
+  "crimson",
+  "cyan",
+  "darkblue",
+  "darkcyan",
+  "darkgoldenrod",
+  "darkgray",
+  "darkgreen",
+  "darkgrey",
+  "darkkhaki",
+  "darkmagenta",
+  "darkolivegreen",
+  "darkorange",
+  "darkorchid",
+  "darkred",
+  "darksalmon",
+  "darkseagreen",
+  "darkslateblue",
+  "darkslategray",
+  "darkslategrey",
+  "darkturquoise",
+  "darkviolet",
+  "deeppink",
+  "deepskyblue",
+  "dimgray",
+  "dimgrey",
+  "dodgerblue",
+  "firebrick",
+  "floralwhite",
+  "forestgreen",
+  "gainsboro",
+  "ghostwhite",
+  "gold",
+  "goldenrod",
+  "greenyellow",
+  "honeydew",
+  "hotpink",
+  "indianred",
+  "indigo",
+  "ivory",
+  "khaki",
+  "lavender",
+  "lavenderblush",
+  "lawngreen",
+  "lemonchiffon",
+  "lightblue",
+  "lightcoral",
+  "lightcyan",
+  "lightgoldenrodyellow",
+  "lightgray",
+  "lightgreen",
+  "lightgrey",
+  "lightpink",
+  "lightsalmon",
+  "lightseagreen",
+  "lightskyblue",
+  "lightslategray",
+  "lightslategrey",
+  "lightsteelblue",
+  "lightyellow",
+  "limegreen",
+  "linen",
+  "mediumaquamarine",
+  "mediumblue",
+  "mediumorchid",
+  "mediumpurple",
+  "mediumseagreen",
+  "mediumslateblue",
+  "mediumspringgreen",
+  "mediumturquoise",
+  "mediumvioletred",
+  "midnightblue",
+  "mintcream",
+  "mistyrose",
+  "moccasin",
+  "navajowhite",
+  "oldlace",
+  "olivedrab",
+  "orangered",
+  "orchid",
+  "palegoldenrod",
+  "palegreen",
+  "paleturquoise",
+  "palevioletred",
+  "papayawhip",
+  "peachpuff",
+  "peru",
+  "pink",
+  "plum",
+  "powderblue",
+  "rosybrown",
+  "royalblue",
+  "saddlebrown",
+  "salmon",
+  "sandybrown",
+  "seagreen",
+  "seashell",
+  "sienna",
+  "skyblue",
+  "slateblue",
+  "slategray",
+  "slategrey",
+  "snow",
+  "springgreen",
+  "steelblue",
+  "tan",
+  "thistle",
+  "tomato",
+  "turquoise",
+  "violet",
+  "wheat",
+  "whitesmoke",
+  "yellowgreen",
+  "rebeccapurple",
+  "hz",
+  "luma",
+  "oklch",
+  "oklab",
+  "color",
 ];
 
 function tokenize(stream: any, _state: any): string | null {
   if (stream.eatSpace()) return null;
   const ch = stream.peek();
-  
+
   if (ch === "/" && stream.match(/\/\/.*/)) {
     stream.skipToEnd();
     return "comment";
@@ -129,7 +361,7 @@ function tokenize(stream: any, _state: any): string | null {
 
   if (stream.match(/-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/)) {
     const rest = stream.peek();
-    if (typstUnits.some(u => rest.startsWith(u))) {
+    if (typstUnits.some((u) => rest.startsWith(u))) {
       stream.match(/[a-zA-Z%]+/);
     }
     return "number";
@@ -155,14 +387,14 @@ function tokenize(stream: any, _state: any): string | null {
     if (typstBuiltin.includes(word)) return "atom";
     if (typstAtoms.includes(word)) return "keyword";
     if (typstColors.includes(word.toLowerCase())) return "special";
-    
+
     const pos = stream.pos;
     if (stream.eatSpace() && stream.peek() === "(") {
       stream.pos = pos;
       return "function";
     }
     stream.pos = pos;
-    
+
     return "variableName";
   }
 
@@ -239,6 +471,11 @@ function App() {
   const [pages, setPages] = useState<PageState[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [compiling, setCompiling] = useState(false);
+  const [sidebarView, setSidebarView] = useState<
+    "files" | "outline" | "search" | "extensions" | "settings"
+  >("files");
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(240);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revisionRef = useRef(0);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -252,19 +489,35 @@ function App() {
   const [splitRatio, setSplitRatio] = useState(0.5);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
-  const previewDragRef = useRef<{ active: boolean; didDrag: boolean; startX: number; startY: number; scrollX: number; scrollY: number }>({
-    active: false, didDrag: false, startX: 0, startY: 0, scrollX: 0, scrollY: 0,
+  const previewDragRef = useRef<{
+    active: boolean;
+    didDrag: boolean;
+    startX: number;
+    startY: number;
+    scrollX: number;
+    scrollY: number;
+  }>({
+    active: false,
+    didDrag: false,
+    startX: 0,
+    startY: 0,
+    scrollX: 0,
+    scrollY: 0,
   });
 
   const editorExtensions = useMemo(() => {
     const extensions = [
       ...typstExtensions,
       EditorView.lineWrapping,
+      history(),
+      highlightSelectionMatches(),
       autocompletion({ override: [typstCompletion] }),
       EditorView.updateListener.of((update) => {
         editorViewRef.current = update.view;
         if (update.selectionSet) {
-          const line = update.state.doc.lineAt(update.state.selection.main.head).number;
+          const line = update.state.doc.lineAt(
+            update.state.selection.main.head,
+          ).number;
           setActiveLine(line);
         }
         if (update.docChanged) {
@@ -272,7 +525,7 @@ function App() {
         }
       }),
     ];
-    
+
     return extensions;
   }, []);
 
@@ -280,7 +533,7 @@ function App() {
     const revision = revisionRef.current + 1;
     revisionRef.current = revision;
     setCompiling(true);
-    
+
     invoke("compile_typst", { content: text, revision }).catch((err) => {
       setError(String(err));
       setCompiling(false);
@@ -314,7 +567,7 @@ function App() {
       }
       return null;
     },
-    [pages]
+    [pages],
   );
 
   const sortedPages = useMemo(() => {
@@ -430,6 +683,30 @@ function App() {
     document.addEventListener("pointerup", onUp);
   }, []);
 
+  const sidebarDragRef = useRef(false);
+
+  const handleSidebarResize = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    sidebarDragRef.current = true;
+    document.body.classList.add("col-resizing");
+
+    const onMove = (ev: PointerEvent) => {
+      if (!sidebarDragRef.current) return;
+      const newWidth = ev.clientX - 48;
+      setSidebarWidth(Math.min(Math.max(newWidth, 150), 500));
+    };
+
+    const onUp = () => {
+      sidebarDragRef.current = false;
+      document.body.classList.remove("col-resizing");
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  }, []);
+
   const visiblePageSet = useMemo(() => {
     const set = new Set<number>();
     if (!sortedPages.length) {
@@ -467,26 +744,32 @@ function App() {
         sendCompile(value);
       }, 300);
     },
-    [sendCompile]
+    [sendCompile],
   );
 
   useEffect(() => {
-    const unlistenPatch = listen<{ revision: number; pages: PagePatch[] }>("typst-patch", (event) => {
-      setPages((prev) => mergePatch(prev, event.payload.pages));
-      setError(null);
-      setCompiling(false);
-    });
+    const unlistenPatch = listen<{ revision: number; pages: PagePatch[] }>(
+      "typst-patch",
+      (event) => {
+        setPages((prev) => mergePatch(prev, event.payload.pages));
+        setError(null);
+        setCompiling(false);
+      },
+    );
 
-    const unlistenError = listen<{ revision: number; message: string }>("typst-error", (event) => {
-      setError(event.payload.message);
-      setCompiling(false);
-    });
+    const unlistenError = listen<{ revision: number; message: string }>(
+      "typst-error",
+      (event) => {
+        setError(event.payload.message);
+        setCompiling(false);
+      },
+    );
 
     sendCompile(DEFAULT_CONTENT);
 
     return () => {
-      unlistenPatch.then(fn => fn());
-      unlistenError.then(fn => fn());
+      unlistenPatch.then((fn) => fn());
+      unlistenError.then((fn) => fn());
     };
   }, [sendCompile]);
 
@@ -550,77 +833,225 @@ function App() {
 
   return (
     <div className="h-screen w-screen bg-obsidian-900 text-obsidian-200">
-      <header className="flex h-11 items-center justify-between border-b border-obsidian-700 bg-linear-to-b from-obsidian-750 to-obsidian-800 px-4 text-[13px] tracking-wide">
-        <div className="flex items-center gap-3">
-          <div className="px-1 text-sm font-semibold">
-            Typst 编辑器
-          </div>
-          <div className="h-5 w-px bg-obsidian-650" />
-          <div className="flex items-center gap-2">
-            <button className="rounded-md border border-transparent bg-transparent px-2.5 py-1 text-xs text-obsidian-200/80 transition hover:border-white/20 hover:bg-white/10 hover:text-obsidian-100">
-              新建
-            </button>
-            <button className="rounded-md border border-transparent bg-transparent px-2.5 py-1 text-xs text-obsidian-200/80 transition hover:border-white/20 hover:bg-white/10 hover:text-obsidian-100">
-              打开
-            </button>
-            <button className="rounded-md border border-transparent bg-transparent px-2.5 py-1 text-xs text-obsidian-200/80 transition hover:border-white/20 hover:bg-white/10 hover:text-obsidian-100">
-              导出
-            </button>
-            <button className="rounded-md border border-transparent bg-transparent px-2.5 py-1 text-xs text-obsidian-200/80 transition hover:border-white/20 hover:bg-white/10 hover:text-obsidian-100">
-              设置
-            </button>
-          </div>
-        </div>
-      </header>
+      <MenuBar
+        editorViewRef={editorViewRef}
+        zoomPercent={zoomPercent}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onZoomReset={handleZoomReset}
+        onZoomFit={handleZoomFit}
+        sidebarVisible={sidebarVisible}
+        onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
+      />
 
       <div className="flex h-[calc(100vh-44px)] min-h-0">
-        <aside className="hidden w-60 flex-col gap-4 overflow-y-auto border-r border-obsidian-700 bg-obsidian-850 px-3 py-4 text-obsidian-300 lg:flex">
-          <div className="space-y-2">
-            <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
-              工作区
-            </div>
-            <div className="rounded-md border border-indigo-400/40 bg-indigo-400/15 px-2 py-1 text-sm text-indigo-100">
-              当前文档
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              示例模板
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              最近打开
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
-              文件
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              main.typ
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              styles.typ
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              refs.bib
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
-              大纲
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              欢迎使用 Typst
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              数学
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              列表
-            </div>
-            <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-              表格
-            </div>
-          </div>
+        <aside className="flex w-12 flex-col items-center gap-2 border-r border-obsidian-700 bg-obsidian-850 py-3">
+          <button
+            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "files" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            title="文件"
+            onClick={() =>
+              sidebarVisible && sidebarView === "files"
+                ? setSidebarVisible(false)
+                : (setSidebarView("files"), setSidebarVisible(true))
+            }
+          >
+            <FolderOpen size={18} />
+          </button>
+          <button
+            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "outline" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            title="大纲"
+            onClick={() =>
+              sidebarVisible && sidebarView === "outline"
+                ? setSidebarVisible(false)
+                : (setSidebarView("outline"), setSidebarVisible(true))
+            }
+          >
+            <List size={18} />
+          </button>
+          <button
+            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "search" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            title="搜索"
+            onClick={() =>
+              sidebarVisible && sidebarView === "search"
+                ? setSidebarVisible(false)
+                : (setSidebarView("search"), setSidebarVisible(true))
+            }
+          >
+            <Search size={18} />
+          </button>
+          <button
+            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "extensions" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            title="扩展"
+            onClick={() =>
+              sidebarVisible && sidebarView === "extensions"
+                ? setSidebarVisible(false)
+                : (setSidebarView("extensions"), setSidebarVisible(true))
+            }
+          >
+            <Box size={18} />
+          </button>
+          <button
+            className={`mt-auto rounded-md p-2 hover:bg-white/10 ${sidebarView === "settings" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            title="设置"
+            onClick={() =>
+              sidebarVisible && sidebarView === "settings"
+                ? setSidebarVisible(false)
+                : (setSidebarView("settings"), setSidebarVisible(true))
+            }
+          >
+            <Settings size={18} />
+          </button>
         </aside>
+
+        {sidebarVisible && (
+          <aside
+            className="flex flex-col border-r border-obsidian-700 bg-obsidian-850 text-obsidian-300"
+            style={{ width: sidebarWidth }}
+          >
+            <div className="flex-1 overflow-y-auto px-3 py-4">
+              {sidebarView === "files" && (
+                <>
+                  <div className="space-y-2">
+                    <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                      工作区
+                    </div>
+                    <div className="rounded-md border border-indigo-400/40 bg-indigo-400/15 px-2 py-1 text-sm text-indigo-100">
+                      当前文档
+                    </div>
+                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                      示例模板
+                    </div>
+                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                      最近打开
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                      文件
+                    </div>
+                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                      main.typ
+                    </div>
+                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                      styles.typ
+                    </div>
+                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                      refs.bib
+                    </div>
+                  </div>
+                </>
+              )}
+              {sidebarView === "outline" && (
+                <div className="space-y-2">
+                  <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                    大纲
+                  </div>
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                    欢迎使用 Typst
+                  </div>
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                    数学
+                  </div>
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                    列表
+                  </div>
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                    表格
+                  </div>
+                </div>
+              )}
+              {sidebarView === "search" && (
+                <div className="space-y-2">
+                  <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                    搜索
+                  </div>
+                  <div className="rounded-md px-2 py-1 text-sm text-obsidian-400">
+                    搜索功能开发中...
+                  </div>
+                </div>
+              )}
+              {sidebarView === "extensions" && (
+                <div className="space-y-2">
+                  <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                    扩展
+                  </div>
+                  <div className="rounded-md px-2 py-1 text-sm text-obsidian-400">
+                    扩展功能开发中...
+                  </div>
+                </div>
+              )}
+              {sidebarView === "settings" && (
+                <div className="space-y-4">
+                  <div className="text-sm font-medium text-obsidian-200">
+                    编辑器
+                  </div>
+                  <div className="space-y-3 rounded-lg bg-obsidian-800/50 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">字体大小</span>
+                      <select className="w-24 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
+                        <option>14px</option>
+                        <option>16px</option>
+                        <option>18px</option>
+                        <option>20px</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">字体</span>
+                      <select className="w-32 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
+                        <option>JetBrains Mono</option>
+                        <option>Fira Code</option>
+                        <option>Source Code Pro</option>
+                        <option>Consolas</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">行高</span>
+                      <select className="w-24 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
+                        <option>1.4</option>
+                        <option>1.5</option>
+                        <option>1.6</option>
+                        <option>1.8</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">制表符</span>
+                      <select className="w-24 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
+                        <option>2 空格</option>
+                        <option>4 空格</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">自动换行</span>
+                      <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-indigo-500" />
+                    </div>
+                  </div>
+                  <div className="text-sm font-medium text-obsidian-200">
+                    界面
+                  </div>
+                  <div className="space-y-3 rounded-lg bg-obsidian-800/50 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">暗色主题</span>
+                      <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-indigo-500" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">显示行号</span>
+                      <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-indigo-500" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-obsidian-300">显示空白字符</span>
+                      <input type="checkbox" className="h-4 w-4 rounded accent-indigo-500" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
+
+        <div
+          className="w-1 cursor-col-resize bg-obsidian-700 hover:bg-indigo-400/60 active:bg-indigo-400/80"
+          onPointerDown={handleSidebarResize}
+        />
 
         <main className="flex min-w-0 flex-1 flex-col bg-obsidian-900">
           <Toolbar
@@ -636,59 +1067,71 @@ function App() {
               className="editor-scroll flex min-w-0 min-h-0 flex-col bg-obsidian-800"
               style={{ width: `${splitRatio * 100}%` }}
             >
-            <div className="flex h-9 items-center border-b border-obsidian-700 bg-obsidian-850 px-3 text-[11px] uppercase tracking-[0.7px] text-obsidian-300">
-              编辑器
-            </div>
-            <div className="relative min-h-0 flex-1">
-              <CodeMirror
-                value={content}
-                onChange={handleChange}
-                theme="dark"
-                height="100%"
-                className="absolute inset-0"
-                extensions={editorExtensions}
-                basicSetup={{
-                  lineNumbers: true,
-                  foldGutter: true,
-                  bracketMatching: true,
-                  closeBrackets: true,
-                  highlightActiveLine: true,
-                  highlightSelectionMatches: true,
-                }}
-              />
-            </div>
-          </section>
+              <div className="flex h-9 items-center border-b border-obsidian-700 bg-obsidian-850 px-3 text-[11px] uppercase tracking-[0.7px] text-obsidian-300">
+                编辑器
+              </div>
+              <div className="relative min-h-0 flex-1">
+                <CodeMirror
+                  value={content}
+                  onChange={handleChange}
+                  theme="dark"
+                  height="100%"
+                  className="absolute inset-0"
+                  extensions={editorExtensions}
+                  basicSetup={{
+                    lineNumbers: true,
+                    foldGutter: true,
+                    bracketMatching: true,
+                    closeBrackets: true,
+                    highlightActiveLine: true,
+                    highlightSelectionMatches: true,
+                  }}
+                />
+              </div>
+            </section>
 
-          <div
+            <div
               className="relative z-10 w-1 cursor-col-resize bg-obsidian-700 hover:bg-indigo-400/60 active:bg-indigo-400/80 transition-colors"
               onPointerDown={handleSplitPointerDown}
             />
 
-          <section
+            <section
               className="relative flex min-w-0 min-h-0 flex-col bg-obsidian-800"
               style={{ width: `${(1 - splitRatio) * 100}%` }}
             >
-            <div className="flex h-9 items-center border-b border-obsidian-700 bg-obsidian-850 px-3 text-[11px] uppercase tracking-[0.7px] text-obsidian-300">
-              预览
-            </div>
-            {compiling && (
-              <div className="absolute right-4 top-12 z-10 rounded-md border border-white/10 bg-obsidian-900/90 px-2.5 py-1 text-xs text-obsidian-300">
-                正在编译...
+              <div className="flex h-9 items-center border-b border-obsidian-700 bg-obsidian-850 px-3 text-[11px] uppercase tracking-[0.7px] text-obsidian-300">
+                预览
               </div>
-            )}
-            <div
-              ref={previewRef}
-              className="preview-scroll min-h-0 flex-1 cursor-grab overflow-auto p-4"
-              onPointerDown={handlePreviewPointerDown}
-              onPointerMove={handlePreviewPointerMove}
-              onPointerUp={handlePreviewPointerUp}
-            >
-              {sortedPages.map((page) => {
-                const isVisible = visiblePageSet.has(page.pageIndex);
-                const scaledWidthPx = page.pageSize.w * PT_TO_PX * pageScale;
-                const scaledHeightPx = page.pageSize.h * PT_TO_PX * pageScale;
+              {compiling && (
+                <div className="absolute right-4 top-12 z-10 rounded-md border border-white/10 bg-obsidian-900/90 px-2.5 py-1 text-xs text-obsidian-300">
+                  正在编译...
+                </div>
+              )}
+              <div
+                ref={previewRef}
+                className="preview-scroll min-h-0 flex-1 cursor-grab overflow-auto p-4"
+                onPointerDown={handlePreviewPointerDown}
+                onPointerMove={handlePreviewPointerMove}
+                onPointerUp={handlePreviewPointerUp}
+              >
+                {sortedPages.map((page) => {
+                  const isVisible = visiblePageSet.has(page.pageIndex);
+                  const scaledWidthPx = page.pageSize.w * PT_TO_PX * pageScale;
+                  const scaledHeightPx = page.pageSize.h * PT_TO_PX * pageScale;
 
-                if (!isVisible) {
+                  if (!isVisible) {
+                    return (
+                      <div
+                        key={page.pageIndex}
+                        className="mx-auto mb-4"
+                        style={{
+                          width: scaledWidthPx,
+                          height: scaledHeightPx,
+                        }}
+                      />
+                    );
+                  }
+
                   return (
                     <div
                       key={page.pageIndex}
@@ -697,72 +1140,60 @@ function App() {
                         width: scaledWidthPx,
                         height: scaledHeightPx,
                       }}
-                    />
-                  );
-                }
-
-                return (
-                  <div
-                    key={page.pageIndex}
-                    className="mx-auto mb-4"
-                    style={{
-                      width: scaledWidthPx,
-                      height: scaledHeightPx,
-                    }}
-                  >
-                    <div
-                      className="relative overflow-hidden bg-white shadow-panel"
-                      style={{
-                        width: page.pageSize.w * PT_TO_PX,
-                        height: page.pageSize.h * PT_TO_PX,
-                        transform: `scale(${pageScale})`,
-                        transformOrigin: "top left",
-                      }}
                     >
-                      {page.blocks.map((block) => (
-                        <div
-                          key={block.blockId}
-                          ref={(el) => {
-                            if (el) {
-                              blockRefs.current.set(block.blockId, el);
-                            } else {
-                              blockRefs.current.delete(block.blockId);
+                      <div
+                        className="relative overflow-hidden bg-white shadow-panel"
+                        style={{
+                          width: page.pageSize.w * PT_TO_PX,
+                          height: page.pageSize.h * PT_TO_PX,
+                          transform: `scale(${pageScale})`,
+                          transformOrigin: "top left",
+                        }}
+                      >
+                        {page.blocks.map((block) => (
+                          <div
+                            key={block.blockId}
+                            ref={(el) => {
+                              if (el) {
+                                blockRefs.current.set(block.blockId, el);
+                              } else {
+                                blockRefs.current.delete(block.blockId);
+                              }
+                            }}
+                            className="preview-block absolute"
+                            style={
+                              block.bbox
+                                ? {
+                                    left: block.bbox.x * PT_TO_PX,
+                                    top: block.bbox.y * PT_TO_PX,
+                                    width: block.bbox.w * PT_TO_PX,
+                                    height: block.bbox.h * PT_TO_PX,
+                                  }
+                                : undefined
                             }
-                          }}
-                          className="preview-block absolute"
-                          style={
-                            block.bbox
-                              ? {
-                                  left: block.bbox.x * PT_TO_PX,
-                                  top: block.bbox.y * PT_TO_PX,
-                                  width: block.bbox.w * PT_TO_PX,
-                                  height: block.bbox.h * PT_TO_PX,
-                                }
-                              : undefined
-                          }
-                          onClick={() => {
-                            if (previewDragRef.current.didDrag) return;
-                            if (block.span) {
-                              scrollEditorToLine(block.span.lineStart);
-                            }
-                          }}
-                          dangerouslySetInnerHTML={{ __html: block.svg }}
-                        />
-                      ))}
+                            onClick={() => {
+                              if (previewDragRef.current.didDrag) return;
+                              if (block.span) {
+                                scrollEditorToLine(block.span.lineStart);
+                              }
+                            }}
+                            dangerouslySetInnerHTML={{ __html: block.svg }}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-            {error && (
-              <div className="sticky bottom-0 border-t border-red-400/40 bg-red-900/80 px-3 py-2 text-xs text-red-200">
-                <span className="mr-2 inline-flex rounded bg-red-500 px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide text-white">
-                  错误
-                </span>
-                {error}
+                  );
+                })}
               </div>
-            )}
-          </section>
+              {error && (
+                <div className="sticky bottom-0 border-t border-red-400/40 bg-red-900/80 px-3 py-2 text-xs text-red-200">
+                  <span className="mr-2 inline-flex rounded bg-red-500 px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide text-white">
+                    错误
+                  </span>
+                  {error}
+                </div>
+              )}
+            </section>
           </div>
         </main>
       </div>
