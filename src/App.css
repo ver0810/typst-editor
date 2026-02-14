@@ -1,32 +1,158 @@
 @import "tailwindcss";
 
 @theme {
-  --color-obsidian-900: #1a1b1e;
-  --color-obsidian-850: #1d1f24;
-  --color-obsidian-800: #1f2126;
-  --color-obsidian-750: #23252a;
-  --color-obsidian-700: #2b2e34;
-  --color-obsidian-650: #30343b;
-  --color-obsidian-600: #3a3d45;
-  --color-obsidian-500: #4a4f5a;
-  --color-obsidian-400: #7d8593;
-  --color-obsidian-300: #a7adb6;
-  --color-obsidian-200: #d8d8d8;
+  --color-obsidian-900: var(--app-bg);
+  --color-obsidian-850: var(--sidebar-bg);
+  --color-obsidian-800: var(--menubar-bg);
+  --color-obsidian-750: var(--item-hover-bg);
+  --color-obsidian-700: var(--border-color);
+  --color-obsidian-600: var(--border-muted);
+  --color-obsidian-500: var(--text-muted);
+  --color-obsidian-400: var(--text-muted-more);
+  --color-obsidian-300: var(--text-main);
+  --color-obsidian-200: var(--text-bright);
 
-  --shadow-panel: 0 6px 18px rgba(0, 0, 0, 0.35);
+  /* shadcn UI colors */
+  --color-background: var(--app-bg);
+  --color-foreground: var(--text-main);
+  --color-card: var(--menubar-bg);
+  --color-card-foreground: var(--text-main);
+  --color-popover: var(--menubar-bg);
+  --color-popover-foreground: var(--text-main);
+  --color-primary: var(--accent-color);
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: var(--sidebar-bg);
+  --color-secondary-foreground: var(--text-main);
+  --color-muted: var(--border-muted);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--item-hover-bg);
+  --color-accent-foreground: var(--text-bright);
+  --color-border: var(--border-color);
+  --color-input: var(--border-muted);
+  --color-ring: var(--accent-color);
+
+  --shadow-panel: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+
+:root {
+  /* Default to Midnight Deep */
+  --app-bg: #1a1b1e;
+  --sidebar-bg: #18181B;
+  --menubar-bg: #1E1F22;
+  --editor-bg: #1E1F22;
+  --preview-container-bg: #0F0F12;
+  --item-hover-bg: rgba(255, 255, 255, 0.08);
+  --border-color: #2b2e34;
+  --border-muted: #3a3d45;
+  --text-main: #D4D4D4;
+  --text-bright: #FFFFFF;
+  --text-muted: #8E8E8E;
+  --text-muted-more: #666666;
+  --accent-color: #49C7D6;
+
+  /* shadcn/Radix mapping */
+  --background: var(--app-bg);
+  --foreground: var(--text-main);
+  --card: var(--menubar-bg);
+  --card-foreground: var(--text-main);
+  --popover: var(--menubar-bg);
+  --popover-foreground: var(--text-main);
+  --primary: var(--accent-color);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--sidebar-bg);
+  --secondary-foreground: var(--text-main);
+  --muted: var(--border-muted);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--item-hover-bg);
+  --accent-foreground: var(--text-bright);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: var(--border-color);
+  --input: var(--border-muted);
+  --ring: var(--accent-color);
+  --radius: 0.5rem;
+
+  /* Syntax Midnight */
+  --syntax-markup: #FFFFFF;
+  --syntax-function: #CE9178;
+  --syntax-math: #B5CEA8;
+  --syntax-code: #9CDCFE;
+  --syntax-comment: #6A9955;
+  --syntax-keyword: #CE9178;
+  --syntax-string: #CE9178;
+  --syntax-number: #B5CEA8;
+}
+
+[data-theme='paper'] {
+  --app-bg: #FBFBF8;
+  --sidebar-bg: #F3F3F1;
+  --menubar-bg: #F3F3F1;
+  --editor-bg: #FBFBF8;
+  --preview-container-bg: #E5E5E1;
+  --item-hover-bg: rgba(0, 0, 0, 0.05);
+  --border-color: #D1D1CB;
+  --border-muted: #E1E1DB;
+  --text-main: #2C2C2C;
+  --text-bright: #1A1A1A;
+  --text-muted: #6A6A60;
+  --text-muted-more: #A0A090;
+  --accent-color: #239DAD;
+
+  /* Syntax Paper */
+  --syntax-markup: #1A1A1A;
+  --syntax-function: #AD3D1C;
+  --syntax-math: #1C6B48;
+  --syntax-code: #4B5E99;
+  --syntax-comment: #A0A090;
+  --syntax-keyword: #AD3D1C;
+  --syntax-string: #4B5E99;
+  --syntax-number: #1C6B48;
+}
+
+[data-theme='midnight'] {
+  --app-bg: #1a1b1e;
+  --sidebar-bg: #18181B;
+  --menubar-bg: #1E1F22;
+  --editor-bg: #1E1F22;
+  --preview-container-bg: #0F0F12;
+  --item-hover-bg: rgba(255, 255, 255, 0.08);
+  --border-color: #2b2e34;
+  --border-muted: #3a3d45;
+  --text-main: #D4D4D4;
+  --text-bright: #FFFFFF;
+  --text-muted: #8E8E8E;
+  --text-muted-more: #666666;
+  --accent-color: #49C7D6;
+
+  /* Syntax Midnight */
+  --syntax-markup: #FFFFFF;
+  --syntax-function: #CE9178;
+  --syntax-math: #B5CEA8;
+  --syntax-code: #9CDCFE;
+  --syntax-comment: #6A9955;
+  --syntax-keyword: #CE9178;
+  --syntax-string: #CE9178;
+  --syntax-number: #B5CEA8;
 }
 
 html,
 body,
 #root {
   height: 100%;
+  background-color: var(--app-bg);
+  color: var(--text-main);
 }
 
 /* CodeMirror: font & background only */
 .cm-editor {
   font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas",
     "SF Mono", "Monaco", monospace;
-  background-color: var(--color-obsidian-800);
+  background-color: var(--editor-bg);
+  color: var(--text-main);
+}
+
+.cm-editor .cm-content {
+  caret-color: var(--accent-color);
 }
 
 /* Ensure CodeMirror scroller works */
@@ -39,8 +165,18 @@ body,
 }
 
 .cm-gutters {
-  background-color: var(--color-obsidian-800);
+  background-color: var(--editor-bg);
+  color: var(--text-muted-more);
   border-right: none;
+}
+
+.cm-activeLine {
+  background-color: var(--item-hover-bg) !important;
+}
+
+.cm-activeLineGutter {
+  background-color: var(--item-hover-bg) !important;
+  color: var(--text-main);
 }
 
 /* Preview scrollbar */
