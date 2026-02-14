@@ -17,6 +17,8 @@
     "@marimo-team/codemirror-languageserver": "^1.16.12",
     "@open-rpc/client-js": "^2.0.0",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/plugin-fs": "^2.4.5",
     "@tauri-apps/plugin-opener": "^2",
     "@uiw/react-codemirror": "^4.25.4",
     "lucide-react": "^0.563.0",
