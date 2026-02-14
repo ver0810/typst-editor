@@ -354,7 +354,7 @@ export function Toolbar({
         <ToolbarButton icon={<Minus size={15} />} onClick={onZoomOut} title="Zoom Out" />
         <button
           onClick={onZoomReset}
-          className="min-w-[40px] cursor-pointer px-1 text-center text-xs text-obsidian-300 transition hover:text-obsidian-100"
+          className="min-w-[40px] cursor-pointer px-1 text-center text-xs text-obsidian-300 transition hover:text-obsidian-200"
           title="Reset Zoom"
         >
           {zoomPercent}%
@@ -380,7 +380,7 @@ function ToolbarButton({
 }) {
   return (
     <button
-      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-obsidian-300 transition hover:bg-white/10 hover:text-obsidian-100 active:bg-white/15"
+      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-obsidian-300 transition hover:bg-obsidian-750 hover:text-obsidian-200 active:bg-obsidian-700"
       onClick={onClick}
       title={title}
     >

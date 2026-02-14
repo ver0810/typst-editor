@@ -414,25 +414,24 @@ function tokenize(stream: any, _state: any): string | null {
 const typstLanguage = StreamLanguage.define({ token: tokenize });
 
 const typstHighlightStyle = HighlightStyle.define([
-  { tag: tags.keyword, color: "#c678dd", fontWeight: "bold" },
-  { tag: tags.function(tags.variableName), color: "#61afef" },
-  { tag: tags.function(tags.variableName), color: "#61afef" },
-  { tag: tags.definition(tags.variableName), color: "#61afef" },
-  { tag: tags.constant(tags.bool), color: "#d19a66" },
-  { tag: tags.number, color: "#d19a66" },
-  { tag: tags.string, color: "#98c379" },
-  { tag: tags.special(tags.string), color: "#c678dd" },
-  { tag: tags.comment, color: "#5c6370", fontStyle: "italic" },
-  { tag: tags.variableName, color: "#e06c75" },
-  { tag: tags.propertyName, color: "#e5c07b" },
-  { tag: tags.operator, color: "#56b6c2" },
-  { tag: tags.bracket, color: "#abb2bf" },
-  { tag: tags.meta, color: "#56b6c2" },
-  { tag: tags.link, color: "#61afef", textDecoration: "underline" },
-  { tag: tags.tagName, color: "#e06c75" },
-  { tag: tags.emphasis, color: "#98c379", fontStyle: "italic" },
-  { tag: tags.strong, color: "#d19a66", fontWeight: "bold" },
-  { tag: tags.strikethrough, color: "#5c6370", textDecoration: "line-through" },
+  { tag: tags.keyword, color: "var(--syntax-keyword)", fontWeight: "bold" },
+  { tag: tags.function(tags.variableName), color: "var(--syntax-function)" },
+  { tag: tags.definition(tags.variableName), color: "var(--syntax-function)" },
+  { tag: tags.constant(tags.bool), color: "var(--syntax-number)" },
+  { tag: tags.number, color: "var(--syntax-number)" },
+  { tag: tags.string, color: "var(--syntax-string)" },
+  { tag: tags.special(tags.string), color: "var(--syntax-keyword)" },
+  { tag: tags.comment, color: "var(--syntax-comment)", fontStyle: "italic" },
+  { tag: tags.variableName, color: "var(--syntax-markup)" },
+  { tag: tags.propertyName, color: "var(--syntax-function)" },
+  { tag: tags.operator, color: "var(--text-muted)" },
+  { tag: tags.bracket, color: "var(--text-muted)" },
+  { tag: tags.meta, color: "var(--syntax-code)" },
+  { tag: tags.link, color: "var(--syntax-code)", textDecoration: "underline" },
+  { tag: tags.tagName, color: "var(--syntax-markup)" },
+  { tag: tags.emphasis, color: "var(--syntax-string)", fontStyle: "italic" },
+  { tag: tags.strong, color: "var(--syntax-markup)", fontWeight: "bold" },
+  { tag: tags.strikethrough, color: "var(--text-muted)", textDecoration: "line-through" },
 ]);
 
 const typstExtensions = [
@@ -472,6 +471,17 @@ const PREVIEW_BUFFER_PX = 600;
 const PREVIEW_PADDING_PX = 32;
 
 function App() {
+  // 主题管理
+  const [theme, setTheme] = useState<"paper" | "midnight">(() => {
+    const stored = localStorage.getItem("typst-editor-theme");
+    return (stored as "paper" | "midnight") || "midnight";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("typst-editor-theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
   // 文件管理
   const {
     currentFile,
@@ -924,7 +934,7 @@ function App() {
       <div className="flex h-[calc(100vh-44px)] min-h-0">
         <aside className="flex w-12 flex-col items-center gap-2 border-r border-obsidian-700 bg-obsidian-850 py-3">
           <button
-            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "files" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "files" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
             title="文件"
             onClick={() =>
               sidebarVisible && sidebarView === "files"
@@ -935,7 +945,7 @@ function App() {
             <FolderOpen size={18} />
           </button>
           <button
-            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "outline" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "outline" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
             title="大纲"
             onClick={() =>
               sidebarVisible && sidebarView === "outline"
@@ -946,7 +956,7 @@ function App() {
             <List size={18} />
           </button>
           <button
-            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "search" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "search" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
             title="搜索"
             onClick={() =>
               sidebarVisible && sidebarView === "search"
@@ -957,7 +967,7 @@ function App() {
             <Search size={18} />
           </button>
           <button
-            className={`rounded-md p-2 hover:bg-white/10 ${sidebarView === "extensions" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "extensions" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
             title="扩展"
             onClick={() =>
               sidebarVisible && sidebarView === "extensions"
@@ -968,7 +978,7 @@ function App() {
             <Box size={18} />
           </button>
           <button
-            className={`mt-auto rounded-md p-2 hover:bg-white/10 ${sidebarView === "settings" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+            className={`mt-auto rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "settings" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
             title="设置"
             onClick={() =>
               sidebarVisible && sidebarView === "settings"
@@ -1009,7 +1019,7 @@ function App() {
                       </div>
                       <button
                         onClick={openWorkspace}
-                        className="rounded p-1 text-obsidian-400 hover:bg-white/10 hover:text-obsidian-200"
+                        className="rounded p-1 text-obsidian-400 hover:bg-obsidian-750 hover:text-obsidian-200"
                         title="打开工作区"
                       >
                         <FolderOpen size={14} />
@@ -1023,7 +1033,7 @@ function App() {
                         <div className="flex items-center justify-end px-2">
                           <button
                             onClick={refreshWorkspace}
-                            className="rounded p-1 text-obsidian-400 hover:bg-white/10 hover:text-obsidian-200"
+                            className="rounded p-1 text-obsidian-400 hover:bg-obsidian-750 hover:text-obsidian-200"
                             title="刷新"
                           >
                             <RefreshCw size={14} />
@@ -1067,16 +1077,16 @@ function App() {
                   <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
                     大纲
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
                     欢迎使用 Typst
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
                     数学
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
                     列表
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
+                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
                     表格
                   </div>
                 </div>
@@ -1101,7 +1111,13 @@ function App() {
                   </div>
                 </div>
               )}
-              {sidebarView === "settings" && <SettingsPanel isDark={true} />}
+              {sidebarView === "settings" && (
+                <SettingsPanel 
+                  isDark={theme === "midnight"} 
+                  theme={theme}
+                  onThemeChange={setTheme}
+                />
+              )}
             </div>
           </aside>
         )}
@@ -1132,7 +1148,7 @@ function App() {
                 <CodeMirror
                   value={content}
                   onChange={handleChange}
-                  theme="dark"
+                  theme={theme === "paper" ? "light" : "dark"}
                   height="100%"
                   className="absolute inset-0"
                   extensions={editorExtensions}
@@ -1154,8 +1170,11 @@ function App() {
             />
 
             <section
-              className="relative flex min-w-0 min-h-0 flex-col bg-obsidian-800"
-              style={{ width: `${(1 - splitRatio) * 100}%` }}
+              className="relative flex min-w-0 min-h-0 flex-col"
+              style={{ 
+                width: `${(1 - splitRatio) * 100}%`,
+                backgroundColor: "var(--preview-container-bg)"
+              }}
             >
               <div className="flex h-9 items-center border-b border-obsidian-700 bg-obsidian-850 px-3 text-[11px] uppercase tracking-[0.7px] text-obsidian-300">
                 预览
