@@ -12,14 +12,14 @@ import {
   ListOrdered,
   Code,
   Link,
-  Minus,
-  Plus,
-  Maximize2,
   Undo2,
   Redo2,
   FileDown,
   ChevronDown,
   Type,
+  Minus,
+  Plus,
+  Maximize2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -430,13 +430,7 @@ export function Toolbar({
       <ToolbarButton icon={<Undo2 size={16} />} onClick={handleUndo} title="撤销 (Ctrl+Z)" />
       <ToolbarButton icon={<Redo2 size={16} />} onClick={handleRedo} title="重做 (Ctrl+Y)" />
 
-      <Separator />
-
-      {onExportPdf && (
-        <ToolbarButton icon={<FileDown size={16} />} onClick={onExportPdf} title="导出 PDF" />
-      )}
-
-      {onExportPdf && <Separator />}
+      <div className="flex-1" />
 
       <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-obsidian-750/30">
         <ToolbarButton icon={<Minus size={14} />} onClick={onZoomOut} title="Zoom Out" />
@@ -453,6 +447,12 @@ export function Toolbar({
       <Separator />
 
       <ToolbarButton icon={<Maximize2 size={16} />} onClick={onZoomFit} title="Fit Width" />
+
+      <div className="flex-1" />
+
+      {onExportPdf && (
+        <ToolbarButton icon={<FileDown size={16} />} onClick={onExportPdf} title="导出 PDF" />
+      )}
     </div>
   );
 }

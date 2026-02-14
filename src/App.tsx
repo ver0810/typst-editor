@@ -1182,13 +1182,14 @@ function App() {
               }}
             >
               {compiling && (
-                <div className="absolute right-4 top-14 z-10 rounded-lg border border-white/5 bg-obsidian-900/95 backdrop-blur px-3 py-1.5 text-xs text-obsidian-300 shadow-lg">
+                <div className="absolute right-4 top-4 z-10 rounded-lg border border-white/5 bg-obsidian-900/95 backdrop-blur px-3 py-1.5 text-xs text-obsidian-300 shadow-lg">
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent-color)] animate-pulse" />
                     正在编译...
                   </div>
                 </div>
               )}
+              
               <div
                 ref={previewRef}
                 className="preview-scroll min-h-0 flex-1 cursor-grab overflow-auto p-4"
