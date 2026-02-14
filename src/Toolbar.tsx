@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
+import { undo as cmUndo, redo as cmRedo } from "@codemirror/commands";
 import {
   Bold,
   Italic,
@@ -14,7 +15,18 @@ import {
   Minus,
   Plus,
   Maximize2,
+  Undo2,
+  Redo2,
+  FileDown,
+  ChevronDown,
+  Type,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ToolbarProps {
   editorViewRef: React.RefObject<EditorView | null>;
@@ -23,7 +35,18 @@ interface ToolbarProps {
   onZoomOut: () => void;
   onZoomReset: () => void;
   onZoomFit: () => void;
+  onExportPdf?: () => void;
 }
+
+const fonts = [
+  { name: "宋体", value: "SimSun" },
+  { name: "黑体", value: "SimHei" },
+  { name: "微软雅黑", value: "Microsoft YaHei" },
+  { name: "楷体", value: "KaiTi" },
+  { name: "仿宋", value: "FangSong" },
+  { name: "Arial", value: "Arial" },
+  { name: "Times New Roman", value: "Times New Roman" },
+];
 
 export function Toolbar({
   editorViewRef,
@@ -32,13 +55,44 @@ export function Toolbar({
   onZoomOut,
   onZoomReset,
   onZoomFit,
+  onExportPdf,
 }: ToolbarProps) {
+  const [selectedFont, setSelectedFont] = useState(fonts[2]);
+
   const runCommand = (action: (view: EditorView) => void) => {
     const editorView = editorViewRef.current;
     if (editorView) {
       action(editorView);
       editorView.focus();
     }
+  };
+
+  const handleUndo = () => {
+    runCommand((view) => cmUndo(view));
+  };
+
+  const handleRedo = () => {
+    runCommand((view) => cmRedo(view));
+  };
+
+  const handleFontChange = (font: typeof fonts[0]) => {
+    setSelectedFont(font);
+    runCommand((view) => {
+      const { state, dispatch } = view;
+      const { from, to } = state.selection.main;
+      const selectedText = state.sliceDoc(from, to);
+      
+      if (selectedText) {
+        dispatch({
+          changes: { from, to, insert: `#text(font: "${font.value}")[${selectedText}]` },
+        });
+      } else {
+        const insertText = `#text(font: "${font.value}")[文本]`;
+        dispatch({
+          changes: { from, insert: insertText },
+        });
+      }
+    });
   };
 
   const toggleWrap = (prefix: string, suffix: string, placeholder = "text") => {
@@ -295,24 +349,47 @@ export function Toolbar({
   };
 
   return (
-    <div className="flex h-9 items-center gap-0.5 border-b border-obsidian-700 bg-obsidian-800 px-3">
+    <div className="flex h-10 items-center gap-1 border-b border-obsidian-700/30 bg-obsidian-800/50 px-3">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-8 items-center gap-1 rounded-md px-2 text-sm text-obsidian-300 hover:bg-obsidian-750/60 hover:text-obsidian-200 transition-all">
+            <Type size={16} />
+            <span className="text-xs">{selectedFont.name}</span>
+            <ChevronDown size={14} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-40">
+          {fonts.map((font) => (
+            <DropdownMenuItem
+              key={font.value}
+              onClick={() => handleFontChange(font)}
+              className={selectedFont.value === font.value ? "bg-obsidian-750/60" : ""}
+            >
+              {font.name}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Separator />
+
       <ToolbarButton
-        icon={<Bold size={15} />}
+        icon={<Bold size={16} />}
         onClick={() => toggleWrap("*", "*")}
         title="Bold (*text*)"
       />
       <ToolbarButton
-        icon={<Italic size={15} />}
+        icon={<Italic size={16} />}
         onClick={() => toggleWrap("_", "_")}
         title="Italic (_text_)"
       />
       <ToolbarButton
-        icon={<Underline size={15} />}
+        icon={<Underline size={16} />}
         onClick={() => toggleFunction("underline")}
         title="Underline (#underline[text])"
       />
       <ToolbarButton
-        icon={<Strikethrough size={15} />}
+        icon={<Strikethrough size={16} />}
         onClick={() => toggleFunction("strike")}
         title="Strikethrough (#strike[text])"
       />
@@ -320,17 +397,17 @@ export function Toolbar({
       <Separator />
 
       <ToolbarButton
-        icon={<Heading size={15} />}
+        icon={<Heading size={16} />}
         onClick={toggleHeading}
         title="Heading (= )"
       />
       <ToolbarButton
-        icon={<List size={15} />}
+        icon={<List size={16} />}
         onClick={() => togglePrefix("- ")}
         title="Bullet List (- )"
       />
       <ToolbarButton
-        icon={<ListOrdered size={15} />}
+        icon={<ListOrdered size={16} />}
         onClick={() => togglePrefix("+ ")}
         title="Numbered List (+ )"
       />
@@ -338,33 +415,44 @@ export function Toolbar({
       <Separator />
 
       <ToolbarButton
-        icon={<Code size={15} />}
+        icon={<Code size={16} />}
         onClick={() => toggleWrap("`", "`", "code")}
         title="Code (`code`)"
       />
       <ToolbarButton
-        icon={<Link size={15} />}
+        icon={<Link size={16} />}
         onClick={handleLink}
         title="Link (#link)"
       />
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-0.5">
-        <ToolbarButton icon={<Minus size={15} />} onClick={onZoomOut} title="Zoom Out" />
+      <ToolbarButton icon={<Undo2 size={16} />} onClick={handleUndo} title="撤销 (Ctrl+Z)" />
+      <ToolbarButton icon={<Redo2 size={16} />} onClick={handleRedo} title="重做 (Ctrl+Y)" />
+
+      <Separator />
+
+      {onExportPdf && (
+        <ToolbarButton icon={<FileDown size={16} />} onClick={onExportPdf} title="导出 PDF" />
+      )}
+
+      {onExportPdf && <Separator />}
+
+      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-obsidian-750/30">
+        <ToolbarButton icon={<Minus size={14} />} onClick={onZoomOut} title="Zoom Out" />
         <button
           onClick={onZoomReset}
-          className="min-w-[40px] cursor-pointer px-1 text-center text-xs text-obsidian-300 transition hover:text-obsidian-200"
+          className="min-w-[44px] cursor-pointer px-2 text-center text-xs text-obsidian-300 font-medium transition hover:text-obsidian-200"
           title="Reset Zoom"
         >
           {zoomPercent}%
         </button>
-        <ToolbarButton icon={<Plus size={15} />} onClick={onZoomIn} title="Zoom In" />
+        <ToolbarButton icon={<Plus size={14} />} onClick={onZoomIn} title="Zoom In" />
       </div>
 
-      <div className="flex flex-1 justify-end">
-        <ToolbarButton icon={<Maximize2 size={15} />} onClick={onZoomFit} title="Fit Width" />
-      </div>
+      <Separator />
+
+      <ToolbarButton icon={<Maximize2 size={16} />} onClick={onZoomFit} title="Fit Width" />
     </div>
   );
 }
@@ -380,7 +468,7 @@ function ToolbarButton({
 }) {
   return (
     <button
-      className="flex h-7 w-7 cursor-pointer items-center justify-center rounded text-obsidian-300 transition hover:bg-obsidian-750 hover:text-obsidian-200 active:bg-obsidian-700"
+      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-obsidian-400 transition-all duration-200 hover:bg-obsidian-750/60 hover:text-obsidian-200 active:scale-95"
       onClick={onClick}
       title={title}
     >
@@ -390,5 +478,5 @@ function ToolbarButton({
 }
 
 function Separator() {
-  return <div className="mx-1 h-4 w-px bg-obsidian-600" />;
+  return <div className="mx-1.5 h-4 w-px bg-obsidian-600/40" />;
 }

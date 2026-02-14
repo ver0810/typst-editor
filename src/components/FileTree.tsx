@@ -34,17 +34,17 @@ function FileTreeNode({
   return (
     <div>
       <div
-        className={`flex cursor-pointer items-center gap-1 rounded-md py-1 pr-2 text-sm transition-colors ${
+        className={`flex cursor-pointer items-center gap-1.5 rounded-lg py-1.5 pr-2 text-sm transition-all duration-200 ${
           isCurrentFile
-            ? "bg-indigo-500/20 text-indigo-300"
-            : "text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
-        } shadow-sm`}
+            ? "bg-[var(--accent-color)]/15 text-[var(--accent-color)]"
+            : "text-obsidian-300 hover:bg-obsidian-750/50 hover:text-obsidian-200"
+        }`}
         style={{ paddingLeft }}
         onClick={handleClick}
       >
         {node.isDirectory ? (
           <>
-            <span className="flex h-4 w-4 items-center justify-center text-obsidian-400">
+            <span className="flex h-4 w-4 items-center justify-center text-obsidian-500">
               {isExpanded ? (
                 <ChevronDown size={14} />
               ) : (
@@ -52,18 +52,18 @@ function FileTreeNode({
               )}
             </span>
             {isExpanded ? (
-              <FolderOpen size={16} className="text-indigo-400" />
+              <FolderOpen size={16} className="text-[var(--accent-color)]" />
             ) : (
-              <Folder size={16} className="text-indigo-400" />
+              <Folder size={16} className="text-obsidian-400" />
             )}
           </>
         ) : (
           <>
             <span className="w-4" />
-            <FileText size={16} className="text-obsidian-400" />
+            <FileText size={16} className={isCurrentFile ? "text-[var(--accent-color)]" : "text-obsidian-400"} />
           </>
         )}
-        <span className="ml-1 truncate">{node.name}</span>
+        <span className="truncate">{node.name}</span>
       </div>
       {node.isDirectory && isExpanded && node.children && (
         <div>

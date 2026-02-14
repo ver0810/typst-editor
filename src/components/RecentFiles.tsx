@@ -17,7 +17,7 @@ export function RecentFilesList({ files, onFileClick, onRemoveFile }: RecentFile
   }
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       {files.map((filePath) => (
         <RecentFileItem
           key={filePath}
@@ -49,7 +49,7 @@ function RecentFileItem({
 
   return (
     <div
-      className="group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-obsidian-750"
+      className="group flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-all duration-200 hover:bg-obsidian-750/50"
       onClick={onClick}
       title={filePath}
     >
@@ -61,7 +61,7 @@ function RecentFileItem({
         )}
       </div>
       <button
-        className="flex-shrink-0 rounded p-1 opacity-0 transition-opacity hover:bg-obsidian-700 group-hover:opacity-100"
+        className="flex-shrink-0 rounded-lg p-1.5 opacity-0 transition-all duration-200 hover:bg-obsidian-700/50 group-hover:opacity-100"
         onClick={onRemove}
         title="从列表中移除"
       >

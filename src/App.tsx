@@ -909,7 +909,7 @@ function App() {
   }, []);
 
   return (
-    <div className="h-screen w-screen bg-obsidian-900 text-obsidian-200">
+    <div className="h-screen w-screen bg-obsidian-900 text-obsidian-200 overflow-hidden">
       <MenuBar
         editorViewRef={editorViewRef}
         zoomPercent={zoomPercent}
@@ -931,76 +931,72 @@ function App() {
         onOpenRecentFile={openFile}
       />
 
-      <div className="flex h-[calc(100vh-44px)] min-h-0">
-        <aside className="flex w-12 flex-col items-center gap-2 border-r border-obsidian-700 bg-obsidian-850 py-3">
-          <button
-            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "files" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+      <div className="flex h-[calc(100vh-40px)] min-h-0">
+        <aside className="flex w-12 flex-col items-center gap-1 border-r border-obsidian-700/40 bg-obsidian-850/60 py-2">
+          <ActivityBarButton
+            icon={<FolderOpen size={20} />}
             title="文件"
+            isActive={sidebarView === "files" && sidebarVisible}
             onClick={() =>
               sidebarVisible && sidebarView === "files"
                 ? setSidebarVisible(false)
                 : (setSidebarView("files"), setSidebarVisible(true))
             }
-          >
-            <FolderOpen size={18} />
-          </button>
-          <button
-            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "outline" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+          />
+          <ActivityBarButton
+            icon={<List size={20} />}
             title="大纲"
+            isActive={sidebarView === "outline" && sidebarVisible}
             onClick={() =>
               sidebarVisible && sidebarView === "outline"
                 ? setSidebarVisible(false)
                 : (setSidebarView("outline"), setSidebarVisible(true))
             }
-          >
-            <List size={18} />
-          </button>
-          <button
-            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "search" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+          />
+          <ActivityBarButton
+            icon={<Search size={20} />}
             title="搜索"
+            isActive={sidebarView === "search" && sidebarVisible}
             onClick={() =>
               sidebarVisible && sidebarView === "search"
                 ? setSidebarVisible(false)
                 : (setSidebarView("search"), setSidebarVisible(true))
             }
-          >
-            <Search size={18} />
-          </button>
-          <button
-            className={`rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "extensions" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+          />
+          <ActivityBarButton
+            icon={<Box size={20} />}
             title="扩展"
+            isActive={sidebarView === "extensions" && sidebarVisible}
             onClick={() =>
               sidebarVisible && sidebarView === "extensions"
                 ? setSidebarVisible(false)
                 : (setSidebarView("extensions"), setSidebarVisible(true))
             }
-          >
-            <Box size={18} />
-          </button>
-          <button
-            className={`mt-auto rounded-md p-2 hover:bg-obsidian-750 ${sidebarView === "settings" && sidebarVisible ? "text-indigo-400" : "text-obsidian-400 hover:text-obsidian-200"}`}
+          />
+          <div className="flex-1" />
+          <ActivityBarButton
+            icon={<Settings size={20} />}
             title="设置"
+            isActive={sidebarView === "settings" && sidebarVisible}
             onClick={() =>
               sidebarVisible && sidebarView === "settings"
                 ? setSidebarVisible(false)
                 : (setSidebarView("settings"), setSidebarVisible(true))
             }
-          >
-            <Settings size={18} />
-          </button>
+          />
         </aside>
 
         {sidebarVisible && (
           <aside
-            className="flex flex-col border-r border-obsidian-700 bg-obsidian-850 text-obsidian-300"
+            className="flex flex-col border-r border-obsidian-700/40 bg-obsidian-850/40 text-obsidian-300 backdrop-blur-subtle"
             style={{ width: sidebarWidth }}
           >
-            <div className="flex-1 overflow-y-auto px-3 py-4">
+            <div className="flex-1 overflow-y-auto sidebar-scroll px-4 py-4">
               {sidebarView === "files" && (
                 <>
                   {/* 文件操作错误提示 */}
                   {fileError && (
-                    <div className="mb-3 rounded-md border border-red-400/40 bg-red-900/80 px-3 py-2 text-xs text-red-200">
+                    <div className="mb-3 rounded-lg border border-red-500/30 bg-red-950/80 backdrop-blur px-3 py-2 text-xs text-red-200">
                       {fileError}
                     </div>
                   )}
@@ -1012,14 +1008,14 @@ function App() {
                     </div>
                   )}
                   {/* 工作区部分 */}
-                  <div className="mb-4 space-y-2">
+                  <div className="mb-5 space-y-2">
                     <div className="flex items-center justify-between px-2">
-                      <div className="text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-obsidian-500">
                         工作区
                       </div>
                       <button
                         onClick={openWorkspace}
-                        className="rounded p-1 text-obsidian-400 hover:bg-obsidian-750 hover:text-obsidian-200"
+                        className="rounded-lg p-1.5 text-obsidian-400 hover:bg-obsidian-750/60 hover:text-obsidian-200 transition-all"
                         title="打开工作区"
                       >
                         <FolderOpen size={14} />
@@ -1033,7 +1029,7 @@ function App() {
                         <div className="flex items-center justify-end px-2">
                           <button
                             onClick={refreshWorkspace}
-                            className="rounded p-1 text-obsidian-400 hover:bg-obsidian-750 hover:text-obsidian-200"
+                            className="rounded-lg p-1.5 text-obsidian-400 hover:bg-obsidian-750/60 hover:text-obsidian-200 transition-all"
                             title="刷新"
                           >
                             <RefreshCw size={14} />
@@ -1046,10 +1042,10 @@ function App() {
                         />
                       </>
                     ) : (
-                      <div className="px-2 py-4 text-center">
+                      <div className="px-2 py-6 text-center">
                         <button
                           onClick={openWorkspace}
-                          className="rounded-md border border-dashed border-obsidian-600 px-3 py-2 text-sm text-obsidian-400 hover:border-obsidian-500 hover:text-obsidian-300"
+                          className="rounded-lg border border-dashed border-obsidian-600/60 px-4 py-2.5 text-sm text-obsidian-400 hover:border-[var(--accent-color)]/50 hover:text-obsidian-300 transition-all"
                         >
                           打开文件夹
                         </button>
@@ -1059,8 +1055,8 @@ function App() {
 
                   {/* 最近打开的文件 */}
                   {recentFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                    <div className="space-y-2 mt-5 pt-4 border-t border-obsidian-700/30">
+                      <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-obsidian-500">
                         最近打开
                       </div>
                       <RecentFilesList
@@ -1073,40 +1069,40 @@ function App() {
                 </>
               )}
               {sidebarView === "outline" && (
-                <div className="space-y-2">
-                  <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                <div className="space-y-1">
+                  <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-obsidian-500 mb-2">
                     大纲
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
+                  <div className="rounded-lg px-3 py-2 text-sm text-obsidian-300 hover:bg-obsidian-750/50 transition-colors cursor-pointer">
                     欢迎使用 Typst
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
+                  <div className="rounded-lg px-3 py-2 text-sm text-obsidian-300 hover:bg-obsidian-750/50 transition-colors cursor-pointer pl-5">
                     数学
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
+                  <div className="rounded-lg px-3 py-2 text-sm text-obsidian-300 hover:bg-obsidian-750/50 transition-colors cursor-pointer pl-5">
                     列表
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm hover:bg-obsidian-750">
+                  <div className="rounded-lg px-3 py-2 text-sm text-obsidian-300 hover:bg-obsidian-750/50 transition-colors cursor-pointer pl-5">
                     表格
                   </div>
                 </div>
               )}
               {sidebarView === "search" && (
                 <div className="space-y-2">
-                  <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                  <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-obsidian-500 mb-2">
                     搜索
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm text-obsidian-400">
+                  <div className="rounded-lg px-3 py-2 text-sm text-obsidian-400 bg-obsidian-750/20">
                     搜索功能开发中...
                   </div>
                 </div>
               )}
               {sidebarView === "extensions" && (
                 <div className="space-y-2">
-                  <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                  <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-obsidian-500 mb-2">
                     扩展
                   </div>
-                  <div className="rounded-md px-2 py-1 text-sm text-obsidian-400">
+                  <div className="rounded-lg px-3 py-2 text-sm text-obsidian-400 bg-obsidian-750/20">
                     扩展功能开发中...
                   </div>
                 </div>
@@ -1122,12 +1118,16 @@ function App() {
           </aside>
         )}
 
-        <div
-          className="w-1 cursor-col-resize bg-obsidian-700 hover:bg-indigo-400/60 active:bg-indigo-400/80"
-          onPointerDown={handleSidebarResize}
-        />
+        {sidebarVisible && (
+          <div
+            className="w-1 cursor-col-resize bg-transparent hover:bg-[var(--accent-color)]/20 active:bg-[var(--accent-color)]/30 transition-colors flex items-center justify-center"
+            onPointerDown={handleSidebarResize}
+          >
+            <div className="w-1 h-8 rounded-full bg-obsidian-500/40" />
+          </div>
+        )}
 
-        <main className="flex min-w-0 flex-1 flex-col bg-obsidian-900">
+        <main className="flex min-w-0 flex-1 flex-col bg-obsidian-900/10">
           <Toolbar
             editorViewRef={editorViewRef}
             zoomPercent={zoomPercent}
@@ -1135,15 +1135,17 @@ function App() {
             onZoomOut={handleZoomOut}
             onZoomReset={handleZoomReset}
             onZoomFit={handleZoomFit}
+            onExportPdf={handleExportPdf}
           />
-          <div ref={splitContainerRef} className="flex min-h-0 flex-1">
+          <div ref={splitContainerRef} className="flex min-h-0 flex-1 gap-2 p-2">
             <section
-              className="editor-scroll flex min-w-0 min-h-0 flex-col bg-obsidian-800"
-              style={{ width: `${splitRatio * 100}%` }}
+              className="editor-scroll flex min-w-0 min-h-0 flex-col rounded-lg overflow-hidden border border-obsidian-700/20"
+              style={{ 
+                width: `${splitRatio * 100}%`,
+                backgroundColor: "var(--editor-float-bg, #1E1E24)",
+                boxShadow: "var(--shadow-float)"
+              }}
             >
-              <div className="flex h-9 items-center border-b border-obsidian-700 bg-obsidian-850 px-3 text-[11px] uppercase tracking-[0.7px] text-obsidian-300">
-                编辑器
-              </div>
               <div className="relative min-h-0 flex-1">
                 <CodeMirror
                   value={content}
@@ -1165,23 +1167,26 @@ function App() {
             </section>
 
             <div
-              className="relative z-10 w-1 cursor-col-resize bg-obsidian-700 hover:bg-indigo-400/60 active:bg-indigo-400/80 transition-colors"
+              className="relative z-10 w-1 cursor-col-resize hover:bg-[var(--accent-color)]/20 active:bg-[var(--accent-color)]/30 transition-colors self-stretch my-4 flex items-center justify-center"
               onPointerDown={handleSplitPointerDown}
-            />
+            >
+              <div className="w-1 h-8 rounded-full bg-obsidian-500/40" />
+            </div>
 
             <section
-              className="relative flex min-w-0 min-h-0 flex-col"
+              className="relative flex min-w-0 min-h-0 flex-col rounded-lg overflow-hidden border border-obsidian-700/20"
               style={{ 
                 width: `${(1 - splitRatio) * 100}%`,
-                backgroundColor: "var(--preview-container-bg)"
+                backgroundColor: "var(--preview-container-bg)",
+                boxShadow: "var(--shadow-float)"
               }}
             >
-              <div className="flex h-9 items-center border-b border-obsidian-700 bg-obsidian-850 px-3 text-[11px] uppercase tracking-[0.7px] text-obsidian-300">
-                预览
-              </div>
               {compiling && (
-                <div className="absolute right-4 top-12 z-10 rounded-md border border-white/10 bg-obsidian-900/90 px-2.5 py-1 text-xs text-obsidian-300">
-                  正在编译...
+                <div className="absolute right-4 top-14 z-10 rounded-lg border border-white/5 bg-obsidian-900/95 backdrop-blur px-3 py-1.5 text-xs text-obsidian-300 shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent-color)] animate-pulse" />
+                    正在编译...
+                  </div>
                 </div>
               )}
               <div
@@ -1212,19 +1217,20 @@ function App() {
                   return (
                     <div
                       key={page.pageIndex}
-                      className="mx-auto mb-4"
+                      className="mx-auto mb-8"
                       style={{
                         width: scaledWidthPx,
                         height: scaledHeightPx,
                       }}
                     >
                       <div
-                        className="relative overflow-hidden bg-white shadow-panel"
+                        className="relative overflow-hidden bg-white"
                         style={{
                           width: page.pageSize.w * PT_TO_PX,
                           height: page.pageSize.h * PT_TO_PX,
                           transform: `scale(${pageScale})`,
                           transformOrigin: "top left",
+                          boxShadow: "var(--shadow-pdf)"
                         }}
                       >
                         {page.blocks.map((block) => (
@@ -1263,11 +1269,13 @@ function App() {
                 })}
               </div>
               {error && (
-                <div className="sticky bottom-0 border-t border-red-400/40 bg-red-900/80 px-3 py-2 text-xs text-red-200">
-                  <span className="mr-2 inline-flex rounded bg-red-500 px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide text-white">
-                    错误
-                  </span>
-                  {error}
+                <div className="sticky bottom-0 border-t border-red-500/30 bg-red-950/90 backdrop-blur px-4 py-3 text-xs text-red-200">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex rounded-md bg-red-500/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                      错误
+                    </span>
+                    <span className="flex-1">{error}</span>
+                  </div>
                 </div>
               )}
             </section>
@@ -1332,6 +1340,32 @@ type PageState = {
   pageSize: PageSize;
   blocks: BlockState[];
 };
+
+function ActivityBarButton({
+  icon,
+  title,
+  isActive,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`relative flex h-10 w-10 items-center justify-center rounded-md transition-all duration-200 ${
+        isActive
+          ? "text-[var(--accent-color)] bg-obsidian-750/60"
+          : "text-obsidian-400 hover:text-obsidian-200 hover:bg-obsidian-750/30"
+      }`}
+      title={title}
+      onClick={onClick}
+    >
+      {icon}
+    </button>
+  );
+}
 
 function toSpanRange(span?: PatchSpanRange | null): SpanRange | undefined {
   if (!span) {

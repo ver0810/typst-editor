@@ -47,7 +47,7 @@ export function SettingsPanel({
   const checkboxClass = "h-5 w-5 rounded accent-blue-500 cursor-pointer";
 
   return (
-    <div className={`h-full w-full overflow-y-auto p-6 ${containerClass}`}>
+    <div className={`h-full w-full overflow-y-auto settings-scroll p-6 ${containerClass}`}>
       <div className="mx-auto max-w-xl space-y-6">
         {/* Editor Settings Title */}
         <h2 className={sectionTitleClass}>Editor settings</h2>

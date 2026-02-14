@@ -147,22 +147,22 @@ export function MenuBar({
   };
 
   return (
-    <div className="flex h-9 items-center gap-1 border-b border-obsidian-700 bg-obsidian-800 px-2">
+    <div className="flex h-10 items-center gap-1 border-b border-obsidian-700/50 bg-obsidian-800/80 backdrop-blur-subtle px-3">
       <button
         onClick={onToggleSidebar}
-        className={`flex h-9 w-9 rounded-md items-center justify-center hover:bg-obsidian-750 ${sidebarVisible ? "text-indigo-400" : "text-obsidian-300"}`}
+        className={`flex h-8 w-8 rounded-lg items-center justify-center transition-all duration-200 hover:bg-obsidian-750 ${sidebarVisible ? "text-[var(--accent-color)] bg-obsidian-750/50" : "text-obsidian-300"}`}
         title={sidebarVisible ? "隐藏侧边栏" : "显示侧边栏"}
       >
         <PanelLeft size={18} />
       </button>
-      <div className="h-5 w-px bg-obsidian-600" />
+      <div className="h-4 w-px bg-obsidian-600/50 mx-1" />
       {/* File Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200 rounded-lg transition-all duration-200"
           >
             文件
           </Button>
@@ -229,7 +229,7 @@ export function MenuBar({
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200 rounded-lg transition-all duration-200"
           >
             编辑
           </Button>
@@ -290,7 +290,7 @@ export function MenuBar({
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200 rounded-lg transition-all duration-200"
           >
             查看
           </Button>
@@ -324,7 +324,7 @@ export function MenuBar({
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200 rounded-lg transition-all duration-200"
           >
             帮助
           </Button>
