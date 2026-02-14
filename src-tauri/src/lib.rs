@@ -66,6 +66,7 @@ struct SpanRange {
 struct CompileResult {
     revision: u64,
     pages: Vec<PagePatch>,
+    total_pages: usize,
 }
 
 #[derive(Serialize, Clone)]
@@ -95,14 +96,14 @@ async fn compile_typst(
     
     // Run compilation in blocking thread to avoid blocking async runtime
     let result = tokio::task::spawn_blocking(move || {
-        build_patch(&content, &state)
+        build_patch_internal(&content, &state)
     })
     .await
     .map_err(|e| e.to_string())?;
 
     match result {
-        Ok(pages) => {
-            let payload = CompileResult { revision, pages };
+        Ok((pages, total_pages)) => {
+            let payload = CompileResult { revision, pages, total_pages };
             app.emit("typst-patch", payload)
                 .map_err(|e| e.to_string())?;
         }
@@ -296,7 +297,7 @@ fn block_from_items(
     }
 }
 
-fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String> {
+fn build_patch_internal(content: &str, state: &AppState) -> Result<(Vec<PagePatch>, usize), String> {
     let mut world_guard = state.world.lock().map_err(|e| e.to_string())?;
     let current_path = state.current_file_path.lock().map_err(|e| e.to_string())?;
 
@@ -313,11 +314,18 @@ fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String
             let mut last_hashes = state.last_hashes.lock().map_err(|e| e.to_string())?;
             let mut last_blocks = state.last_blocks.lock().map_err(|e| e.to_string())?;
 
-            if last_hashes.len() < document.pages.len() {
-                last_hashes.resize(document.pages.len(), 0);
+            let total_pages = document.pages.len();
+
+            if last_hashes.len() < total_pages {
+                last_hashes.resize(total_pages, 0);
+            } else if last_hashes.len() > total_pages {
+                last_hashes.truncate(total_pages);
             }
-            if last_blocks.len() < document.pages.len() {
-                last_blocks.resize_with(document.pages.len(), HashMap::new);
+
+            if last_blocks.len() < total_pages {
+                last_blocks.resize_with(total_pages, HashMap::new);
+            } else if last_blocks.len() > total_pages {
+                last_blocks.truncate(total_pages);
             }
 
             let mut patches = Vec::new();
@@ -389,9 +397,10 @@ fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String
 
                 if changed_blocks.is_empty() && removed_blocks.is_empty() {
                     if let Some(existing) = last_hashes.get_mut(index) {
-                        *existing = page_hash;
+                        if *existing == page_hash {
+                            continue;
+                        }
                     }
-                    continue;
                 }
 
                 block_cache.clear();
@@ -410,7 +419,7 @@ fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String
                 }
             }
 
-            Ok(patches)
+            Ok((patches, total_pages))
         }
         Err(errors) => {
             let error_msg = errors
@@ -421,6 +430,10 @@ fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String
             Err(error_msg)
         }
     }
+}
+
+fn build_patch(content: &str, state: &AppState) -> Result<Vec<PagePatch>, String> {
+    build_patch_internal(content, state).map(|(patches, _)| patches)
 }
 
 /// Tauri command: Export Typst content to PDF
