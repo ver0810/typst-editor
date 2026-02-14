@@ -1,0 +1,9 @@
+.typst-doc-page {
+  position: relative;
+  background: white;
+  margin: 0 auto;
+}
+
+.typst-doc-page > canvas {
+  display: block;
+}
