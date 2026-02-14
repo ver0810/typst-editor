@@ -1,11 +1,24 @@
 import { useState } from "react";
 import { Pencil, Info, ChevronDown, ChevronUp, AlignLeft, AlignJustify } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 interface SettingsPanelProps {
   isDark?: boolean;
+  theme: "paper" | "midnight";
+  onThemeChange: (theme: "paper" | "midnight") => void;
 }
 
-export function SettingsPanel({ isDark = true }: SettingsPanelProps) {
+export function SettingsPanel({ 
+  isDark = true,
+  theme,
+  onThemeChange
+}: SettingsPanelProps) {
   const [fontSize, setFontSize] = useState(13);
   const [lineNumbers, setLineNumbers] = useState("Normal");
   const [showLineNumbersInSearch, setShowLineNumbersInSearch] = useState(true);
@@ -14,7 +27,6 @@ export function SettingsPanel({ isDark = true }: SettingsPanelProps) {
   const [disableCtrlS, setDisableCtrlS] = useState(true);
   const [enableVimMode, setEnableVimMode] = useState(false);
   const [enableSpellchecking, setEnableSpellchecking] = useState(true);
-  const [lineDropdownOpen, setLineDropdownOpen] = useState(false);
 
   const containerClass = isDark 
     ? "bg-obsidian-900 text-obsidian-100" 
@@ -39,6 +51,31 @@ export function SettingsPanel({ isDark = true }: SettingsPanelProps) {
       <div className="mx-auto max-w-xl space-y-6">
         {/* Editor Settings Title */}
         <h2 className={sectionTitleClass}>Editor settings</h2>
+
+        {/* Appearance Theme */}
+        <div className="flex items-center justify-between">
+          <span className={labelClass}>Appearance Theme</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-40 justify-between font-normal"
+              >
+                {theme === "paper" ? "Paper Light" : "Midnight Deep"}
+                <ChevronDown size={16} className="opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => onThemeChange("midnight")}>
+                Midnight Deep
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onThemeChange("paper")}>
+                Paper Light
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {/* Font size */}
         <div className="flex items-center justify-between">
@@ -72,31 +109,28 @@ export function SettingsPanel({ isDark = true }: SettingsPanelProps) {
         {/* Line numbers */}
         <div className="flex items-center justify-between">
           <span className={labelClass}>Line numbers</span>
-          <div className="relative">
-            <button
-              onClick={() => setLineDropdownOpen(!lineDropdownOpen)}
-              className={`flex items-center justify-between gap-2 ${inputClass} w-32`}
-            >
-              <span>{lineNumbers}</span>
-              <ChevronDown size={16} />
-            </button>
-            {lineDropdownOpen && (
-              <div className={`absolute right-0 top-full mt-1 w-32 rounded-md border shadow-lg z-10 ${isDark ? "border-obsidian-600 bg-obsidian-800" : "border-gray-200 bg-white"}`}>
-                {["Normal", "Relative", "Interval", "Off"].map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => {
-                      setLineNumbers(option);
-                      setLineDropdownOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-500 hover:text-white first:rounded-t-md last:rounded-b-md ${isDark ? "text-obsidian-200" : "text-gray-700"}`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-32 justify-between font-normal"
+              >
+                {lineNumbers}
+                <ChevronDown size={16} className="opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-32">
+              {["Normal", "Relative", "Interval", "Off"].map((option) => (
+                <DropdownMenuItem
+                  key={option}
+                  onClick={() => setLineNumbers(option)}
+                >
+                  {option}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Show line numbers in search results */}
