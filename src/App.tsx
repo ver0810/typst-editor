@@ -9,11 +9,16 @@ import { highlightSelectionMatches } from "@codemirror/search";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { tags } from "@lezer/highlight";
-import { FolderOpen, List, Search, Box, Settings } from "lucide-react";
+import { FolderOpen, List, Search, Box, Settings, RefreshCw } from "lucide-react";
 import "./App.css";
 import { Toolbar } from "./Toolbar";
 import { MenuBar } from "./MenuBar";
 import { typstCompletion, updateDocument } from "./TypstLsp";
+import { useFileManager } from "./hooks/useFileManager";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { FileTree } from "./components/FileTree";
+import { RecentFilesList } from "./components/RecentFiles";
+import { SettingsPanel } from "./components/SettingsPanel";
 
 const typstKeywords = [
   "let",
@@ -467,6 +472,35 @@ const PREVIEW_BUFFER_PX = 600;
 const PREVIEW_PADDING_PX = 32;
 
 function App() {
+  // 文件管理
+  const {
+    currentFile,
+    workspaceRoot,
+    fileTree,
+    recentFiles,
+    isLoading: fileLoading,
+    error: fileError,
+    newFile,
+    openFile,
+    openFileFromTree,
+    saveFile,
+    saveAs,
+    openWorkspace,
+    refreshWorkspace,
+    updateContent: updateFileContent,
+    setupAutoSave,
+    clearAutoSave,
+    removeFromRecentFiles,
+  } = useFileManager();
+
+  // 键盘快捷键
+  useKeyboardShortcuts({
+    onNewFile: newFile,
+    onOpenFile: openFile,
+    onSaveFile: () => currentFile && saveFile(content),
+    onSaveAs: () => saveAs(content),
+  });
+
   const [content, setContent] = useState(DEFAULT_CONTENT);
   const [pages, setPages] = useState<PageState[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -529,16 +563,34 @@ function App() {
     return extensions;
   }, []);
 
-  const sendCompile = useCallback((text: string) => {
+  const sendCompile = useCallback((text: string, filePath?: string) => {
     const revision = revisionRef.current + 1;
     revisionRef.current = revision;
     setCompiling(true);
 
-    invoke("compile_typst", { content: text, revision }).catch((err) => {
+    invoke("compile_typst", { content: text, revision, filePath }).catch((err) => {
       setError(String(err));
       setCompiling(false);
     });
   }, []);
+
+  // PDF 导出处理
+  const handleExportPdf = useCallback(async () => {
+    try {
+      setCompiling(true);
+      const result = await invoke<string>("export_pdf", {
+        content,
+        filePath: currentFile?.path,
+      });
+      console.log("PDF exported to:", result);
+      setError(null);
+    } catch (err) {
+      console.error("Failed to export PDF:", err);
+      setError(String(err));
+    } finally {
+      setCompiling(false);
+    }
+  }, [content, currentFile?.path]);
 
   const scrollEditorToLine = useCallback((line: number) => {
     const view = editorViewRef.current;
@@ -737,25 +789,30 @@ function App() {
   const handleChange = useCallback(
     (value: string) => {
       setContent(value);
+      updateFileContent(value);
+      setupAutoSave(value, 3000);
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
       timerRef.current = setTimeout(() => {
-        sendCompile(value);
+        sendCompile(value, currentFile?.path || undefined);
       }, 300);
     },
-    [sendCompile],
+    [sendCompile, updateFileContent, setupAutoSave, currentFile?.path],
   );
 
   useEffect(() => {
-    const unlistenPatch = listen<{ revision: number; pages: PagePatch[] }>(
-      "typst-patch",
-      (event) => {
-        setPages((prev) => mergePatch(prev, event.payload.pages));
-        setError(null);
-        setCompiling(false);
-      },
-    );
+    const unlistenPatch = listen<{
+      revision: number;
+      pages: PagePatch[];
+      total_pages: number;
+    }>("typst-patch", (event) => {
+      setPages((prev) =>
+        mergePatch(prev, event.payload.pages, event.payload.total_pages),
+      );
+      setError(null);
+      setCompiling(false);
+    });
 
     const unlistenError = listen<{ revision: number; message: string }>(
       "typst-error",
@@ -765,13 +822,13 @@ function App() {
       },
     );
 
-    sendCompile(DEFAULT_CONTENT);
+    sendCompile(DEFAULT_CONTENT, currentFile?.path || undefined);
 
     return () => {
       unlistenPatch.then((fn) => fn());
       unlistenError.then((fn) => fn());
     };
-  }, [sendCompile]);
+  }, [sendCompile, currentFile?.path]);
 
   useEffect(() => {
     const target = activeTarget?.block;
@@ -823,11 +880,21 @@ function App() {
     };
   }, [handleWheelZoom]);
 
+  // 当打开的文件变化时，更新编辑器内容
+  useEffect(() => {
+    if (currentFile) {
+      setContent(currentFile.content);
+      sendCompile(currentFile.content, currentFile.path);
+    }
+  }, [currentFile?.path]);
+
+  // 清理定时器
   useEffect(() => {
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
+      clearAutoSave();
     };
   }, []);
 
@@ -842,6 +909,16 @@ function App() {
         onZoomFit={handleZoomFit}
         sidebarVisible={sidebarVisible}
         onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
+        currentFileName={currentFile?.name}
+        isDirty={currentFile?.isDirty}
+        onNewFile={newFile}
+        onOpenFile={openFile}
+        onOpenFolder={openWorkspace}
+        onSaveFile={() => currentFile && saveFile(content)}
+        onSaveAs={() => saveAs(content)}
+        onExportPdf={handleExportPdf}
+        recentFiles={recentFiles}
+        onOpenRecentFile={openFile}
       />
 
       <div className="flex h-[calc(100vh-44px)] min-h-0">
@@ -911,34 +988,78 @@ function App() {
             <div className="flex-1 overflow-y-auto px-3 py-4">
               {sidebarView === "files" && (
                 <>
-                  <div className="space-y-2">
-                    <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
-                      工作区
+                  {/* 文件操作错误提示 */}
+                  {fileError && (
+                    <div className="mb-3 rounded-md border border-red-400/40 bg-red-900/80 px-3 py-2 text-xs text-red-200">
+                      {fileError}
                     </div>
-                    <div className="rounded-md border border-indigo-400/40 bg-indigo-400/15 px-2 py-1 text-sm text-indigo-100">
-                      当前文档
+                  )}
+                  {/* 文件加载状态 */}
+                  {fileLoading && (
+                    <div className="mb-3 flex items-center gap-2 px-2 text-xs text-obsidian-400">
+                      <RefreshCw size={14} className="animate-spin" />
+                      加载中...
                     </div>
-                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-                      示例模板
+                  )}
+                  {/* 工作区部分 */}
+                  <div className="mb-4 space-y-2">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                        工作区
+                      </div>
+                      <button
+                        onClick={openWorkspace}
+                        className="rounded p-1 text-obsidian-400 hover:bg-white/10 hover:text-obsidian-200"
+                        title="打开工作区"
+                      >
+                        <FolderOpen size={14} />
+                      </button>
                     </div>
-                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-                      最近打开
-                    </div>
+                    {workspaceRoot ? (
+                      <>
+                        <div className="px-2 text-xs text-obsidian-500 truncate" title={workspaceRoot}>
+                          {workspaceRoot}
+                        </div>
+                        <div className="flex items-center justify-end px-2">
+                          <button
+                            onClick={refreshWorkspace}
+                            className="rounded p-1 text-obsidian-400 hover:bg-white/10 hover:text-obsidian-200"
+                            title="刷新"
+                          >
+                            <RefreshCw size={14} />
+                          </button>
+                        </div>
+                        <FileTree
+                          nodes={fileTree}
+                          currentFilePath={currentFile?.path}
+                          onFileClick={openFileFromTree}
+                        />
+                      </>
+                    ) : (
+                      <div className="px-2 py-4 text-center">
+                        <button
+                          onClick={openWorkspace}
+                          className="rounded-md border border-dashed border-obsidian-600 px-3 py-2 text-sm text-obsidian-400 hover:border-obsidian-500 hover:text-obsidian-300"
+                        >
+                          打开文件夹
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
-                      文件
+
+                  {/* 最近打开的文件 */}
+                  {recentFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="px-2 text-[11px] uppercase tracking-[0.6px] text-obsidian-400">
+                        最近打开
+                      </div>
+                      <RecentFilesList
+                        files={recentFiles}
+                        onFileClick={openFile}
+                        onRemoveFile={removeFromRecentFiles}
+                      />
                     </div>
-                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-                      main.typ
-                    </div>
-                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-                      styles.typ
-                    </div>
-                    <div className="rounded-md px-2 py-1 text-sm hover:bg-white/5">
-                      refs.bib
-                    </div>
-                  </div>
+                  )}
                 </>
               )}
               {sidebarView === "outline" && (
@@ -980,70 +1101,7 @@ function App() {
                   </div>
                 </div>
               )}
-              {sidebarView === "settings" && (
-                <div className="space-y-4">
-                  <div className="text-sm font-medium text-obsidian-200">
-                    编辑器
-                  </div>
-                  <div className="space-y-3 rounded-lg bg-obsidian-800/50 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">字体大小</span>
-                      <select className="w-24 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
-                        <option>14px</option>
-                        <option>16px</option>
-                        <option>18px</option>
-                        <option>20px</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">字体</span>
-                      <select className="w-32 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
-                        <option>JetBrains Mono</option>
-                        <option>Fira Code</option>
-                        <option>Source Code Pro</option>
-                        <option>Consolas</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">行高</span>
-                      <select className="w-24 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
-                        <option>1.4</option>
-                        <option>1.5</option>
-                        <option>1.6</option>
-                        <option>1.8</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">制表符</span>
-                      <select className="w-24 rounded border border-obsidian-600 bg-obsidian-700 px-2 py-1 text-sm text-obsidian-200">
-                        <option>2 空格</option>
-                        <option>4 空格</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">自动换行</span>
-                      <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-indigo-500" />
-                    </div>
-                  </div>
-                  <div className="text-sm font-medium text-obsidian-200">
-                    界面
-                  </div>
-                  <div className="space-y-3 rounded-lg bg-obsidian-800/50 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">暗色主题</span>
-                      <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-indigo-500" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">显示行号</span>
-                      <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-indigo-500" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-obsidian-300">显示空白字符</span>
-                      <input type="checkbox" className="h-4 w-4 rounded accent-indigo-500" />
-                    </div>
-                  </div>
-                </div>
-              )}
+              {sidebarView === "settings" && <SettingsPanel isDark={true} />}
             </div>
           </aside>
         )}
@@ -1266,13 +1324,21 @@ function toSpanRange(span?: PatchSpanRange | null): SpanRange | undefined {
   };
 }
 
-function mergePatch(prev: PageState[], pages: PagePatch[]): PageState[] {
+function mergePatch(
+  prev: PageState[],
+  pages: PagePatch[],
+  totalPages: number,
+): PageState[] {
   const map = new Map<number, PageState>();
   for (const page of prev) {
-    map.set(page.pageIndex, page);
+    if (page.pageIndex < totalPages) {
+      map.set(page.pageIndex, page);
+    }
   }
 
   for (const patch of pages) {
+    if (patch.page_index >= totalPages) continue;
+
     const existing = map.get(patch.page_index);
     const blockMap = new Map<string, BlockState>();
 
