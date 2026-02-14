@@ -20,7 +20,6 @@ import {
   Save,
   Download,
   Clock,
-  LogOut,
   Info,
   BookOpen,
   CheckSquare,
@@ -44,6 +43,16 @@ interface MenuBarProps {
   onZoomFit: () => void;
   sidebarVisible: boolean;
   onToggleSidebar: () => void;
+  currentFileName?: string | null;
+  isDirty?: boolean;
+  onNewFile?: () => void;
+  onOpenFile?: () => void;
+  onOpenFolder?: () => void;
+  onSaveFile?: () => void;
+  onSaveAs?: () => void;
+  onExportPdf?: () => void;
+  recentFiles?: string[];
+  onOpenRecentFile?: (path: string) => void;
 }
 
 export function MenuBar({
@@ -55,6 +64,16 @@ export function MenuBar({
   onZoomFit,
   sidebarVisible,
   onToggleSidebar,
+  currentFileName,
+  isDirty,
+  onNewFile,
+  onOpenFile,
+  onOpenFolder,
+  onSaveFile,
+  onSaveAs,
+  onExportPdf,
+  recentFiles = [],
+  onOpenRecentFile,
 }: MenuBarProps) {
   const runCommand = (action: (view: EditorView) => void) => {
     const editorView = editorViewRef.current;
@@ -131,7 +150,7 @@ export function MenuBar({
     <div className="flex h-9 items-center gap-1 border-b border-obsidian-700 bg-obsidian-800 px-2">
       <button
         onClick={onToggleSidebar}
-        className={`flex h-9 w-9 rounded-md items-center justify-center hover:bg-white/10 ${sidebarVisible ? "text-indigo-400" : "text-obsidian-300"}`}
+        className={`flex h-9 w-9 rounded-md items-center justify-center hover:bg-obsidian-750 ${sidebarVisible ? "text-indigo-400" : "text-obsidian-300"}`}
         title={sidebarVisible ? "隐藏侧边栏" : "显示侧边栏"}
       >
         <PanelLeft size={18} />
@@ -143,51 +162,64 @@ export function MenuBar({
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-white/10 hover:text-obsidian-100"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
           >
             文件
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="w-56 bg-obsidian-700 border-obsidian-600"
+          className="w-56"
         >
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
+          <DropdownMenuItem onClick={() => onNewFile?.()}>
             <FileText size={15} className="mr-2" />
             新建
             <DropdownMenuShortcut>Ctrl+N</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
-            <FolderOpen size={15} className="mr-2" />
-            打开
+          <DropdownMenuItem onClick={() => onOpenFile?.()}>
+            <FileText size={15} className="mr-2" />
+            打开文件
             <DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
+          <DropdownMenuItem onClick={() => onOpenFolder?.()}>
+            <FolderOpen size={15} className="mr-2" />
+            打开文件夹
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onSaveFile?.()}>
             <Save size={15} className="mr-2" />
             保存
             <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
+          <DropdownMenuItem onClick={() => onSaveAs?.()}>
             <Save size={15} className="mr-2" />
             另存为
             <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onExportPdf?.()}>
             <Download size={15} className="mr-2" />
             导出 PDF
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
-            <Clock size={15} className="mr-2" />
-            最近打开
-          </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
-            <LogOut size={15} className="mr-2" />
-            退出
-          </DropdownMenuItem>
+          {recentFiles.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                最近打开
+              </div>
+              {recentFiles.slice(0, 5).map((filePath) => (
+                <DropdownMenuItem
+                  key={filePath}
+                  className="truncate"
+                  onClick={() => onOpenRecentFile?.(filePath)}
+                  title={filePath}
+                >
+                  <Clock size={15} className="mr-2 flex-shrink-0" />
+                  <span className="truncate">{filePath.split(/[/\\]/).pop()}</span>
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -197,78 +229,54 @@ export function MenuBar({
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-white/10 hover:text-obsidian-100"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
           >
             编辑
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="w-56 bg-obsidian-700 border-obsidian-600"
+          className="w-56"
         >
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handleUndo}
-          >
+          <DropdownMenuItem onClick={handleUndo}>
             <Undo2 size={15} className="mr-2" />
             撤销
             <DropdownMenuShortcut>Ctrl+Z</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handleRedo}
-          >
+          <DropdownMenuItem onClick={handleRedo}>
             <Redo2 size={15} className="mr-2" />
             重做
             <DropdownMenuShortcut>Ctrl+Y</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handleCut}
-          >
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleCut}>
             <Scissors size={15} className="mr-2" />
             剪切
             <DropdownMenuShortcut>Ctrl+X</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handleCopy}
-          >
+          <DropdownMenuItem onClick={handleCopy}>
             <Copy size={15} className="mr-2" />
             复制
             <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handlePaste}
-          >
+          <DropdownMenuItem onClick={handlePaste}>
             <Clipboard size={15} className="mr-2" />
             粘贴
             <DropdownMenuShortcut>Ctrl+V</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handleFind}
-          >
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleFind}>
             <Search size={15} className="mr-2" />
             查找
             <DropdownMenuShortcut>Ctrl+F</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handleReplace}
-          >
+          <DropdownMenuItem onClick={handleReplace}>
             <Replace size={15} className="mr-2" />
             查找和替换
             <DropdownMenuShortcut>Ctrl+H</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={handleSelectAll}
-          >
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSelectAll}>
             <CheckSquare size={15} className="mr-2" />
             全选
             <DropdownMenuShortcut>Ctrl+A</DropdownMenuShortcut>
@@ -282,40 +290,28 @@ export function MenuBar({
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-white/10 hover:text-obsidian-100"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
           >
             查看
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="w-48 bg-obsidian-700 border-obsidian-600"
+          className="w-48"
         >
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={onZoomIn}
-          >
+          <DropdownMenuItem onClick={onZoomIn}>
             <Plus size={15} className="mr-2" />
             放大
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={onZoomOut}
-          >
+          <DropdownMenuItem onClick={onZoomOut}>
             <Minus size={15} className="mr-2" />
             缩小
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={onZoomReset}
-          >
+          <DropdownMenuItem onClick={onZoomReset}>
             缩放: {zoomPercent}%
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem
-            className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100"
-            onClick={onZoomFit}
-          >
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onZoomFit}>
             <Maximize2 size={15} className="mr-2" />
             适合宽度
           </DropdownMenuItem>
@@ -328,26 +324,34 @@ export function MenuBar({
           <Button
             variant="ghost"
             size="sm"
-            className="text-obsidian-300 hover:bg-white/10 hover:text-obsidian-100"
+            className="text-obsidian-300 hover:bg-obsidian-750 hover:text-obsidian-200"
           >
             帮助
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="w-48 bg-obsidian-700 border-obsidian-600"
+          className="w-48"
         >
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
+          <DropdownMenuItem>
             <BookOpen size={15} className="mr-2" />
             文档
           </DropdownMenuItem>
-          <DropdownMenuSeparator className="bg-obsidian-600" />
-          <DropdownMenuItem className="text-obsidian-200 focus:bg-obsidian-600 focus:text-obsidian-100">
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>
             <Info size={15} className="mr-2" />
             关于
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Current File Info */}
+      {currentFileName && (
+        <div className="ml-4 flex items-center gap-2 text-sm text-obsidian-400">
+          <span className="truncate max-w-xs">{currentFileName}</span>
+          {isDirty && <span className="text-indigo-400">●</span>}
+        </div>
+      )}
     </div>
   );
 }
